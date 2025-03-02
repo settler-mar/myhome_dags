@@ -1,0 +1,12 @@
+auth:
+  algorithm: HS256
+  expire_minutes: 30
+  role_by_ip:
+    127.0.0.1: root
+    192.168.0.: user
+    localhost: admin
+  secret_key: 8ZagsiJX8fze2gDdDjK7jPXqmnAvCViB9HGZ82ZpYryODGf3F5Kn8zaRyUB6Dj8e
+db:
+  echo: false
+  echo_pool: false
+  url: sqlite:///../sql_app.db

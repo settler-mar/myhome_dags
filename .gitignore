@@ -1,0 +1,19 @@
+.vscode/
+.idea/
+/log/
+
+# Back
+backend/config/config.ini
+.coverage
+__pycache__/
+.pytest_cache
+backend/coverage.xml
+backend/dist/
+
+# Front
+frontend/node_modules/
+yarn.lock
+
+*.db
+*.db.backup
+backend/orchestrator.json

@@ -1,0 +1,57 @@
+
+[tooltip]::before {
+  content: attr(tooltip);
+  position: absolute;
+  background: #333;
+  color: #fffffb;
+  padding: 0px;
+  opacity: 0;
+  border-radius: 2px;
+  border: 2px solid #333;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 999;
+  transform: translate(-50%, -110%);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.2s .5s, padding 0s .8s, height 0s .8s, max-height 0s .8s;
+}
+
+[tooltip]:hover::before {
+  opacity: .9;
+  padding: 4px 8px;
+  max-height: 100px;
+  transition: opacity 0.2s, padding 0s, height 0s, max-height 0s;
+}
+
+[tooltip].on_dnd::before {
+  display: none;
+  content: none;
+}
+
+.vue-flow__handle-wrap {
+  &-2 {
+    :nth-child(1) {
+      left: 25%;
+      transform: translate(-50%, 100%);
+    }
+
+    :nth-child(2) {
+      left: 75%;
+      transform: translate(-50%, 100%);
+    }
+  }
+}
+
+#columns_control {
+  --v-input-control-height: 24px;
+
+  .v-switch .v-selection-control {
+    --v-input-control-height: 24px;
+    min-height: 24px;
+  }
+
+  .v-input--density-default {
+    --v-input-control-height: 24px;
+  }
+}

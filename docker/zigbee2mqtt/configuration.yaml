@@ -1,0 +1,40 @@
+permit_join: true
+external_converters: []
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://192.168.0.61
+serial:
+  port: /dev/ttyACM0
+  adapter: auto
+  disable_led: false
+frontend:
+  port: 8080
+advanced:
+  network_key:
+    - 168
+    - 242
+    - 214
+    - 39
+    - 203
+    - 52
+    - 200
+    - 178
+    - 167
+    - 186
+    - 187
+    - 136
+    - 176
+    - 189
+    - 34
+    - 69
+  homeassistant_legacy_entity_attributes: false
+  legacy_api: false
+  legacy_availability_payload: false
+  log_level: info
+device_options:
+  legacy: false
+devices:
+  '0xa4c1385ce6c7f87e':
+    friendly_name: '0xa4c1385ce6c7f87e'
+    state_action: true
+    power_calibration: ''
