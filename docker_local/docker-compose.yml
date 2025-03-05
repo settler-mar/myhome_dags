@@ -8,11 +8,6 @@ services:
       - 8161:8161
     networks:
       - cedalo-platform
-  mqtt-explorer:
-    image: smeagolworms4/mqtt-explorer
-    restart: unless-stopped
-    ports:
-      - 4000:4000
   zigbee2mqtt:
     container_name: zigbee2mqtt
     restart: always

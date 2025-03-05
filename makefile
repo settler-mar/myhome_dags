@@ -1,8 +1,11 @@
 .EXPORT_ALL_VARIABLES:
 
 # Install dependencies
-install:
+install_full:
 	bash install.sh
+	make install
+
+install:
 	cd backend && pip install -r requirements.txt --break-system-packages
 	cd frontend && yarn install
 

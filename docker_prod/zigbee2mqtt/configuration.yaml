@@ -1,0 +1,33 @@
+permit_join: true
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://127.0.0.1:1883
+serial:
+  port: /dev/ttyACM0
+  adapter: zstack
+frontend:
+  enabled: true
+  port: 8080
+advanced:
+  network_key:
+    - 168
+    - 242
+    - 214
+    - 39
+    - 203
+    - 52
+    - 200
+    - 178
+    - 167
+    - 186
+    - 187
+    - 136
+    - 176
+    - 189
+    - 34
+    - 69
+  log_level: info
+version: 4
+devices:
+  '0xa4c1385ce6c7f87e':
+    friendly_name: '0xa4c1385ce6c7f87e'

@@ -3,17 +3,12 @@
 /log/
 
 # Back
-backend/config/config.ini
-.coverage
 __pycache__/
-.pytest_cache
-backend/coverage.xml
-backend/dist/
+/backend/.pytest_cache
+*.db
+*.db.backup
+/backend/orchestrator.json
 
 # Front
 frontend/node_modules/
 yarn.lock
-
-*.db
-*.db.backup
-backend/orchestrator.json

@@ -1,5 +1,6 @@
 <template>
   <div>
+    {{ params}}
     <template v-for="param in params">
       <v-text-field
         v-if="['int','float'].indexOf(param.type) !== -1"

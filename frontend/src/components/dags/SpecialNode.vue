@@ -186,7 +186,7 @@ export default {
   border-color: #476e35;
 }
 
-@for $i from 2 through 5 {
+@for $i from 2 through 6 {
   .vue-flow__handle-wrap[item_count="#{$i}"] {
     @for $j from 1 through $i {
       .vue-flow__handle:nth-child(#{$j}) {

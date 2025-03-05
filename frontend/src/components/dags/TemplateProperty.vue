@@ -57,12 +57,12 @@ export default {
       if (this.dagsStore.page.substr(0, 4) !== 'tpl:') {
         return {}
       }
-      if (this.dagsStore.page.substr(0, 4) !== 'pin:') {
-        return {}
-      }
-      return this.dagsStore.templates_edit[this.dagsStore.page.substr(4)] || {}
+      if (!this.dagsStore.templates_edit[this.dagsStore.page.substr(4)])
+        this.dagsStore.templates_edit[this.dagsStore.page.substr(4)] = {}
+      return this.dagsStore.templates_edit[this.dagsStore.page.substr(4)]
     },
-    ...mapStores(dagsStore)
+    ...mapStores(dagsStore),
+
   },
   methods: {
     onDragStart

@@ -530,9 +530,12 @@ export default {
     }
   },
   watch: {
-    tab() {
+    tab(val) {
       this.dagsStore.select_node = null
-      // this.dagsStore.setPage(this.dagsStore.page)
+      // Fit View
+      // zoom out
+      setTimeout(this.$refs.flow.fitView, 200)
+      // this.$refs.flow.zoom
     },
     selectTPL: {
       handler: function (val) {

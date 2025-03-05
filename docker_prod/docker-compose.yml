@@ -1,0 +1,19 @@
+version: "3.6"
+services:
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    restart: always
+    image: koenkk/zigbee2mqtt
+    volumes:
+      - ./zigbee2mqtt:/app/data
+      - /run/udev:/run/udev:ro
+    ports:
+      - 8081:8080
+    environment:
+      - TZ=Europe/Kiev
+    devices:
+      - /dev/ttyAML0:/dev/ttyACM0
+networks:
+  cedalo-platform:
+    name: cedalo-platform
+    driver: bridge
