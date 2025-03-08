@@ -39,15 +39,18 @@ class ListNode(DAGNode):
 
   def execute(self, input_keys: list):
     if self.params['state'] == 0:
+      print(id(self), self, 'state 0')
       return
     value = self.input_values.get('value', {'new_value': (0, 0)})['new_value'][0]
     if self.params['state'] == 1 and value == self.prev_value:
+      print(id(self), self, 'state 1. NO change', value)
       return
     self.prev_value = value
 
     if self.params['time_filter'] > 0:
       if time() - self.prev_send < self.params['time_filter']:
+        print(id(self), self, 'time filter', time() - self.prev_send)
         return
       self.prev_send = time()
-
+    print(id(self), self, 'send', value)
     self.set_output(self.input_values.get('value', {'new_value': (0, 0)}))

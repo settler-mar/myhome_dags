@@ -1,3 +1,11 @@
+cd /etc/systemd/system
+sudo systemctl stop serial-getty@ttyAML0.service
+sudo systemctl mask serial-getty@ttyAML0.service
+sudo awk '{gsub(/console=ttyAML0,115200n8/,"")}1' /boot/uEnv.txt > /tmp/uEnv.txt
+sudo rm /boot/uEnv.txt
+sudo mv /tmp/uEnv.txt /boot/uEnv.txt
+
+
 cd /tmp
 sudo apt-get update
 sudo apt install curl -y
@@ -10,12 +18,12 @@ chmod +x get-docker.sh
 sudo ./get-docker.sh
 
 cd /tmp
-apt-get install ca-certificates curl gnupg lsb-release
-mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-apt update
-apt-get install docker-compose -y
+sudo apt-get install ca-certificates curl gnupg lsb-release
+sudo mkdir -p /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt-get install docker-compose -y
 
 sudo apt install openjdk-11-jre -y
 

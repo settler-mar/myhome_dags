@@ -2,11 +2,12 @@
 FROM node:20 as build-stage
 WORKDIR /frontend
 COPY frontend/ .
-RUN npm install
+RUN npm install -g yarn
+RUN yarn install
 RUN npm run build
 
 # Python Backend
-FROM python:3.9
+FROM python:3.12
 WORKDIR /backend
 COPY backend/ .
 RUN pip install --no-cache-dir --upgrade -r requirements.txt

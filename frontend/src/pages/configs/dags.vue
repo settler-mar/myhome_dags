@@ -3,9 +3,10 @@
   <!--    {{ nodes }}-->
   <!--  {{ edges }}-->
   <!--  {{ dagsStore.dags_db}}-->
-  <!--  {{ edited_params }}-->
+<!--  {{ edited_params }}-->
   <!--  {{ sel_el }}-->
-  <!--  {{dagsStore.templates_edit[this.dagsStore.page.substr(4)]['input']}}-->
+  <!--    {{dagsStore.templates_edit[this.dagsStore.page.substr(4)]['input']}}-->
+  <!--    {{dagsStore.templates_edit[this.dagsStore.page.substr(4)]}}-->
   <v-container style="max-width: 1900px; height: 100%" class="dnd-flow" @drop="onDrop">
     <VueFlow
       :nodes="nodes"
@@ -322,7 +323,6 @@ export default {
         console.log('sel_el', group, sel_node)
         if (group === 'dag') {
           const base_params = {}
-          let source_params = []
           if (typeof sel_node.data.dag.id === 'string' && sel_node.data.dag.id.split(':')[0] === 'tpl') {
             const tpl = this.dagsStore.get_template(sel_node.data.dag.name, sel_node.data.dag.version)
             if (!tpl) return
@@ -354,7 +354,7 @@ export default {
           }
         } else {
           params.push({
-            'name': '_desscription',
+            'name': '_description',
             'description': 'Description',
             'value': sel_node.data.dag.description,
           })
@@ -556,6 +556,7 @@ export default {
     },
     edited_params: {
       handler: function (val) {
+        console.log('edited_params', val)
         const map1 = new Map(this.prev_params.params.map(item => [item.name, item.value]));
         const differences = {};
 
@@ -573,8 +574,20 @@ export default {
         if (Object.keys(differences).length === 0) {
           return
         }
+        let gr = this.prev_params.group
+        if (this.dagsStore.page.substr(0, 4) === 'tpl:') {
+          this.selectTPL.need_save = true
+          if (gr === 'dag') {
+            gr = 'dags'
+          }
+          // this.selectTPL.template[gr].find(item => item.id === this.prev_params.id).params = {
+          //   ...this.selectTPL.template[gr].find(item => item.id === this.prev_params.id).params,
+          //   ...differences
+          // }
+          // return
+        }
         let timer = setTimeout(this.save_param, 500,
-          differences, this.prev_params.id, this.prev_params.page, this.prev_params.group)
+          differences, this.prev_params.id, this.prev_params.page, gr)
         this.params_set_timer = {
           id: this.prev_params.id,
           page: this.prev_params.page,

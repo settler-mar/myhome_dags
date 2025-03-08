@@ -34,8 +34,15 @@ class SchedulerNode(DAGNode):
      'description': 'Результат выполнения узла',
      'type': 'select',
      'default': 'on (255)',
-     'items': {0: 'off (0)', 255: 'on (255)', 127: 'half/mode (127)'},
+     'items': {0: 'off (0)', 255: 'on (255)', 127: 'half/mode (127)', -1: 'custom'},
      'public': False},
+    {
+      'name': 'custom_value',
+      'description': 'Пользовательское значение',
+      'type': 'str',
+      'public': True,
+      'default': '255'
+    }
   ]
   output_groups = [
     {'name': 'default', 'description': 'Выход сработки'}
@@ -52,6 +59,7 @@ class SchedulerNode(DAGNode):
 
   async def set_param(self, name: str, value: any, send_update: bool = True):
     await DAGNode.set_param(self, name, value, send_update)
+    name in ['scheduler', 'set'] and self.calc_new_schedule()
 
   @property
   def scheduler_str(self):
@@ -60,18 +68,30 @@ class SchedulerNode(DAGNode):
     return self.params['scheduler']
 
   def send(self):
-    print(datetime.now(), 'SchedulerNode send', id(self))
+    value = self.params.get('out_value', -1)
+    if value == -1:
+      value = self.params.get('custom_value')
+    self.updated_output = {}
+    self.set_output(value)
+    self._run_next()
 
-  def run_step(self):
+  def calc_new_schedule(self):
     if self.prev_scheduler_str != self.scheduler_str:
       self.prev_scheduler_str = self.scheduler_str
       print(datetime.now(), 'SchedulerNode new shadule', id(self), self.scheduler_str)
-      self.cron = CronTab(self.params['scheduler'])
-      self.run_at = time() + self.cron.next(default_utc=False)
+      self.run_at = None
+      try:
+        self.cron = CronTab(self.scheduler_str)
+        self.run_at = time() + self.cron.next(default_utc=False)
 
-      ts_end_minutes = 6 - time() % 5
-      if ts_end_minutes > 1:
-        sleep(ts_end_minutes - 1)
+        ts_end_minutes = 6 - time() % 5
+        if ts_end_minutes > 1:
+          sleep(ts_end_minutes - 1)
+      except Exception as e:
+        print(datetime.now(), 'SchedulerNode new shadule error', id(self), e)
+
+  def run_step(self):
+    self.calc_new_schedule()
 
     if self.run_at is not None and time() > self.run_at:
       self.send()
@@ -83,11 +103,4 @@ class SchedulerNode(DAGNode):
       self.thread.submit(self.run_step)
 
   def execute(self, input_keys: list):
-    print('DelayNode execute', input_keys)
-    # Остановка узла
-    if 'stop' in input_keys is not None:
-      pass
-
-    # Запуск узла
-    if 'start' in input_keys:
-      pass
+    pass

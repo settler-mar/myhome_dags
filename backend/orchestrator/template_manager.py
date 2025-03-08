@@ -9,6 +9,7 @@ from utils.socket_utils import connection_manager
 from datetime import datetime
 from models.dag_template import DAGTemplateBase
 from utils.auth import RoleChecker
+import asyncio
 
 router = APIRouter()
 
@@ -31,8 +32,10 @@ class TemplateManager(SingletonClass):
     dag = DAGTemplateBase(tpl=tpl, path=path)
 
     if params:
-      for key, value in params.items():
-        dag.params[key] = value
+      print('init template with params', params)
+      asyncio.run(dag.set_params(params, False))
+      # for key, value in params.items():
+      #   dag.set_param(key, value, False)
     return dag
 
 

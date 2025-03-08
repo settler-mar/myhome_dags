@@ -35,6 +35,10 @@ class DAGNode:
   page = 'main'
   is_simple = False
 
+  outputs: dict = None  # Выходы узла (ссылки на другие узлы)
+  input_values: dict = None  # Значения входов (параметры)
+  updated_output: dict = None  # Обновленные значения выходов. Для передачи на следующий узел. Очищается после передачи
+
   def __init__(self):
     self.outputs = {}  # Выходы узла (ссылки на другие узлы)
     self.input_values = {}  # Значения входов (параметры)
@@ -48,11 +52,7 @@ class DAGNode:
 
   def kill(self):
     """Останавливает выполнение узла"""
-    if self.thread is not None and self.thread.is_alive():
-      try:
-        self.thread.terminate()
-      except Exception as e:
-        pass
+    self.stop_thread()
 
   @property
   def id(self):
@@ -107,6 +107,7 @@ class DAGNode:
     """Устанавливает параметр узла"""
     try:
       if name not in self.params:
+        print(f"💥 {self} {id(self)} Error: Param {name} not found. Value {value}")
         return
       for param in self.params_groups:
         if param['name'] != name:
@@ -124,21 +125,24 @@ class DAGNode:
           value = param['max']
         if 'step' in param and (value - param['min']) % param['step'] != 0:
           value = param['min'] + ((value - param['min']) // param['step']) * param['step']
-        break
+
       self.params[name] = value
       if send_update:
         await connection_manager.broadcast({"type": "dag",
                                             "action": "update_params",
                                             "data": {"id": self.id, "params": {name: value}}})
+      print('🤛 set dag param', id(self), self.__class__, name, value)
+
     except Exception as e:
       print(f"Error setting param {name}={value}: {e}")
 
-  async def set_params(self, params: dict):
+  async def set_params(self, params: dict, send_update: bool = True):
     """Устанавливает параметры узла"""
     for name, value in params.items():
       await self.set_param(name, value, False)
-    await connection_manager.broadcast(
-      {"type": "dag", "action": "update_params", "data": {"id": self.id, "params": self.params}})
+    if send_update:
+      await connection_manager.broadcast(
+        {"type": "dag", "action": "update_params", "data": {"id": self.id, "params": self.params}})
 
   def set_position(self, x: int, y: int):
     """Устанавливает позицию узла"""
@@ -147,6 +151,7 @@ class DAGNode:
   def set_input(self, value: Any, input_group: Optional[str] = 'default'):
     """Устанавливает входной узел (перезаписывает предыдущие)"""
     self.input_values[input_group] = value
+    print('🤜 set dag input', id(self), self.__class__, input_group, value)
 
   def set_output(self, value: Any, output_group: Optional[str] = 'default'):
     """Устанавливает выходной узел (перезаписывает предыдущие)"""
@@ -197,6 +202,7 @@ class DAGNode:
     # self.thread = None
 
   def _run_next(self):
+    print('🏃 run next', id(self), self.__class__)
     need_run = {}
     # Передача данных на выход
     for output_group, value in self.updated_output.items():
@@ -207,9 +213,8 @@ class DAGNode:
             need_run[output_node] = {}
           need_run[output_node][children_group] = True
           continue
-        if input_type == 'params':
-          # output_node.set_param(self.outputs[output_group], children_group)
-          print('send params in node //in development//', value, children_group)
+        if input_type == 'param':
+          asyncio.run(output_node.set_param(children_group, value.get('new_value', [0, 0])[0]))
           continue
 
     # Запуск следующих в отдельном потоке
@@ -231,6 +236,7 @@ class DAGNode:
     #
     # self.thread = multiprocessing.Process(target=self._execute)
     # self.thread.start()
+    print('🤸 process', id(self), self.__class__, input_keys)
 
     self.stop_thread()
 

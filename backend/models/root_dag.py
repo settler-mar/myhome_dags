@@ -80,7 +80,11 @@ class rootDag:
       dag = dag_id_map[dag_params['id']]
       for group_out, output_nodes in dag_params['outputs'].items():
         for in_type, dag_in, group_in in output_nodes:
-          await dag.add_output(dag_id_map[dag_in], in_type, group_out, group_in, send_update=False)
+          if not dag_in in dag_id_map:
+            print(f"Error: DAG {dag_in} not found")
+          else:
+            await dag.add_output(dag_id_map[dag_in], in_type, group_out, group_in, send_update=False)
+    return dag_id_map
 
   def remove_dag(self, dag_id: int):
     """Удаляет DAG по идентификатору"""

@@ -133,7 +133,7 @@ export const useDagsStore = defineStore("dags", {
           return
         }
         this.templates_edit[page]['template']['dags'] = this.templates_edit[page]['template']['dags'] || []
-        let params = []
+        let params = {}
         for (let param of this.getDagByName(dagName)['params'] || []) {
           params[param['name']] = param['default']
         }
@@ -279,7 +279,7 @@ export const useDagsStore = defineStore("dags", {
       console.log('deleteConnection', connectionData)
       if (this.page.substr(0, 4) === 'tpl:') {
         const tpl_name = this.page.substr(4)
-        let tpl_group = connectionData.from_id.split('_')[0]
+        let tpl_group = connectionData.source.split('_')[0]
         if (!['input', 'output', 'param'].includes(tpl_group)) {
           tpl_group = 'dags'
         }
@@ -287,9 +287,10 @@ export const useDagsStore = defineStore("dags", {
           console.log('deleteConnection', 'some error')
           return
         }
+        let sourceHandle = connectionData.sourceHandle.split('_')
         for (let i = 0; i < this.templates_edit[tpl_name]['template'][tpl_group].length; i++) {
-          if (this.templates_edit[tpl_name]['template'][tpl_group][i].id === connectionData.from_id) {
-            this.templates_edit[tpl_name]['template'][tpl_group][i].outputs[connectionData.from_port] = this.templates_edit[tpl_name]['template'][tpl_group][i].outputs[connectionData.from_port].filter((conn) => conn[1] !== connectionData.to_id)
+          if (this.templates_edit[tpl_name]['template'][tpl_group][i].id === connectionData.source) {
+            this.templates_edit[tpl_name]['template'][tpl_group][i].outputs[sourceHandle[1]] = this.templates_edit[tpl_name]['template'][tpl_group][i].outputs[sourceHandle[1]].filter((conn) => conn[1] !== connectionData.target)
             return
           }
         }

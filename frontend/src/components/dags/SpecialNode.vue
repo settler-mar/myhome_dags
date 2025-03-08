@@ -3,6 +3,7 @@
     <!--    {{ data.dag.id }}-->
     <!--    {{ data.dag }}-->
     <!--    {{ config }}-->
+    <!--    {{ config['params']}}-->
     <!--    {{ inputs}}-->
     <span class="dag_title" :version="version">{{ data.dag.title }}</span>
     <span class="dag_sub_title" v-if="data.dag.sub_title">{{ sub_title }}</span>
@@ -112,21 +113,35 @@ export default {
         return pins
       }
       console.log('>>>', this.config)
+      let need_sort = false
       for (let pin of this.config['inputs'] || []) {
         pins.push({
           id: 'in_' + pin.name,
           position: Position.Top,
-          tooltip: pin.description
+          tooltip: pin.description,
+          sort_pos: pin.position || [0, 0]
         })
+        if (pin.position) {
+          need_sort = true
+        }
       }
       for (let pin of this.config['params'] || []) {
         if (pin['public'] !== false) {
           pins.push({
             id: 'param_' + pin.name,
             position: Position.Top,
-            tooltip: pin.description
+            tooltip: pin.description,
+            sort_pos: pin.position || [0, 0]
           })
+          if (pin.position) {
+            need_sort = true
+          }
         }
+      }
+      if (need_sort) {
+        pins.sort((a, b) => {
+          return a.sort_pos[0] - b.sort_pos[0]
+        })
       }
       return pins
     },

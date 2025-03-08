@@ -27,9 +27,15 @@ class ConditionNode(DAGNode):
     {'name': 'out_value',
      'description': 'Выводимое значение в порт true/false',
      'type': 'select',
-     'default': 'input(value)',
-     'items': {-1: 'input(value)', 0: 'false (0)', 255: 'true (255)', 127: 'half/mode (127)'},
-     }
+     'default': -1,
+     'items': {-1: 'input(value)', 0: 'false (0)', 255: 'true (255)', 127: 'half/mode (127)', -2: 'custom'},
+     'public': False,
+     }, {
+      'name': 'custom_value',
+      'description': 'Пользовательское значение',
+      'type': 'str',
+      'public': True,
+    }
   ]
   output_groups = [
     {'name': 'default', 'description': 'Выходные данные по умолчанию'},
@@ -52,10 +58,11 @@ class ConditionNode(DAGNode):
       '<': value < threshold,
       '<=': value <= threshold,
     }[condition]
-    print(f"Node {self.name} started at {time()}. {value} {condition} {threshold}. Result: {result}")
 
     value = self.params.get('out_value', -1)
     if value == -1:
-      value = self.input_values.get('start'),
+      value = self.input_values.get('value')
+    elif value == -2:
+      value = self.params.get('custom_value')
     self.set_output(255 if result else 0)
     self.set_output(value, 'true' if result else 'false')

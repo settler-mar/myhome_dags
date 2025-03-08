@@ -23,7 +23,7 @@ class User(BaseModelDB):
   full_name = Column(String)
   email = Column(String, unique=True, index=True)
   is_active = Column(Boolean, default=True)
-  role = Column(String, default='user')
+  role = Column(String)
   tg_id = Column(Integer, unique=True, index=True)
   otp = Column(String)
   last_login = Column(DateTime, default=datetime.utcnow)

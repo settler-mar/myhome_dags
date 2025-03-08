@@ -44,11 +44,17 @@ class Connectors(SingletonClass):
         module_params = {key: value for key, value in item.__dict__.items()
                          if not key.startswith('_') and
                          key not in ['created_by', 'updated_by', 'created_at', 'updated_at', 'type']}
-        self.connectors[item.id] = self.connectors_class[item.type](**module_params)
+        try:
+          self.connectors[item.id] = self.connectors_class[item.type](**module_params)
+        except Exception as e:
+          print(f"Error while creating connector {item.type}")
 
   def start_connectors(self):
     for connector in self.connectors.values():
-      hasattr(connector, 'start') and connector.start()
+      try:
+        hasattr(connector, 'start') and connector.start()
+      except Exception as e:
+        print(f"Error while starting connector {connector._id}")
 
 
 def init_connectors(app):
