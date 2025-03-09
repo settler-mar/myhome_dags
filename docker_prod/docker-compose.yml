@@ -13,6 +13,20 @@ services:
       - TZ=Europe/Kiev
     devices:
       - /dev/ttyAML0:/dev/ttyACM0
+  app:
+    container_name: app_server
+    restart: always
+    image: server
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    volumes:
+      - ../frontend:/frontend
+      - ../backend:/backend
+    networks:
+      - cedalo-platform
 networks:
   cedalo-platform:
     name: cedalo-platform

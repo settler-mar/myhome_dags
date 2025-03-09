@@ -11,7 +11,8 @@ sudo apt-get update
 sudo apt install curl -y
 curl -fsSL https://deb.nodesource.com/setup_21.x | sudo -E bash -
 sudo apt install nodejs -y
-npm install --global yarn
+sudo npm install --global yarn
+sudo npm install -g sass
 sudo apt install python3-pip -y
 curl -fsSL https://get.docker.com -o get-docker.sh
 chmod +x get-docker.sh

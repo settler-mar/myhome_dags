@@ -1,0 +1,21 @@
+version: "3.6"
+services:
+  app:
+    container_name: app_server
+    restart: always
+    image: server
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    ports:
+        - 8080:8080
+    volumes:
+        - ./frontend:/app/frontend
+        - ./backend:/app/backend
+    networks:
+      - cedalo-platform
+
+networks:
+  cedalo-platform:
+    name: cedalo-platform
+    driver: bridge

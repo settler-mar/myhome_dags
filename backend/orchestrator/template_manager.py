@@ -26,10 +26,10 @@ class TemplateManager(SingletonClass):
            .query(Template)
            .filter(Template.name == name)
            .filter(Template.version == version)
-           .first().__dict__)
+           .first())
     if not tpl:
       return
-    dag = DAGTemplateBase(tpl=tpl, path=path)
+    dag = DAGTemplateBase(tpl=tpl.__dict__, path=path)
 
     if params:
       print('init template with params', params)

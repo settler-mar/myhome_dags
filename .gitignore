@@ -1,6 +1,8 @@
 .vscode/
 .idea/
 /log/
+docker_prod/zigbee2mqtt/configuration.yaml
+logs/
 
 # Back
 __pycache__/

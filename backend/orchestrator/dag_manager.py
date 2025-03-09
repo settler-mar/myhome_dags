@@ -97,7 +97,8 @@ class DAGManager(SingletonClass):
 
     dag = self.get_dag_by_name(name, params, rootDag.path)
     if not dag:
-      raise ValueError(f"DAG {name} not found")
+      print(f"DAG {name} not found")
+      return
 
     if position:
       dag.position = position

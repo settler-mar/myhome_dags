@@ -57,6 +57,8 @@ class rootDag:
                                          params=dag_params['params'],
                                          position=dag_params['position'],
                                          root_dag=self)
+      if dag is None:
+        continue
       dag.setPage(dag_params.get('page', 'main'))
       dag.is_simple = dag_params.get('is_simple', False)
       dag_id_map[dag_params['id']] = dag
@@ -77,6 +79,9 @@ class rootDag:
           dag_id_map[pin['id']] = dag
 
     for dag_params in dag_json:
+      if dag_params['id'] not in dag_id_map:
+        print(f"Error: DAG {dag_params['id']} not found")
+        continue
       dag = dag_id_map[dag_params['id']]
       for group_out, output_nodes in dag_params['outputs'].items():
         for in_type, dag_in, group_in in output_nodes:
