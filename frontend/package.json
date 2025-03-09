@@ -22,7 +22,7 @@
     "vis-network": "^9.1.9",
     "vue": "^3.3.0",
     "vue-draggable-next": "^2.2.1",
-    "vuetify": "^3.7.6"
+    "vuetify": "^3.7.15"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.0",

@@ -1,3 +1,6 @@
+#set PWD in HOME variable
+HOME=$(pwd)
+
 cd /etc/systemd/system
 sudo systemctl stop serial-getty@ttyAML0.service
 sudo systemctl mask serial-getty@ttyAML0.service
@@ -61,3 +64,26 @@ sudo mv /tmp/jetty.xml /opt/activemq/conf/jetty.xml
 sudo systemctl daemon-reload
 sudo systemctl start activemq
 sudo systemctl enable activemq
+
+# run run.sh from current directory as service
+sudo cat <<EOF > /tmp/server_app.service
+[Unit]
+Description=server_app
+
+[Service]
+ExecStart=/bin/bash $HOME/run.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo mv /tmp/server_app.service /etc/systemd/system/server_app.service
+sudo systemctl daemon-reload
+sudo systemctl start server_app
+
+#go to backend directory
+cd $HOME/backend
+pip3 install -r requirements.txt
+
+#go to frontend directory
+cd $HOME/frontend
+yarn install
