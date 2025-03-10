@@ -1,3 +1,4 @@
+dist_path: frontend/dist
 auth:
   algorithm: HS256
   expire_minutes: 30

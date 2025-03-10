@@ -1,7 +1,7 @@
 <template>
 
   <div class="nodes">
-    <v-dialog max-width="500">
+    <v-dialog max-width="500" v-model="dialog">
       <template v-slot:activator="{ props: activatorProps }">
         <v-btn
           v-bind="activatorProps"
@@ -14,7 +14,8 @@
       </template>
 
       <template v-slot:default="{ isActive }">
-        <v-card title="New template">
+
+        <v-card v-bind:title="template.id?'Edit template (' + template.id + ')':'New template'">
           <v-text-field
             v-model="template.name"
             label="Name"
@@ -31,6 +32,8 @@
             v-model="template.version"
             label="Version"
           ></v-text-field>
+
+          <JsonEditorVue v-model="template.template"/>
 
           <v-card-actions>
             <v-spacer></v-spacer>
@@ -98,6 +101,10 @@
         <v-btn icon size="x-small" v-else @click="open_tpl(dag,false)">
           <v-icon>mdi-eye</v-icon>
         </v-btn>
+        <!--        edit as json-->
+        <v-btn icon size="x-small" @click="edit_template(dag)">
+          <v-icon>mdi-ballot</v-icon>
+        </v-btn>
       </div>
     </div>
 
@@ -107,6 +114,7 @@
 
 <script>
 import useDragAndDrop from '@/module/useDnD.js'
+import JsonEditorVue from "json-editor-vue";
 
 const {onDragStart} = useDragAndDrop();
 import dagsStore from "@/store/dags";
@@ -118,8 +126,12 @@ export default {
   data() {
     return {
       template: {},
-      isActive: false
+      isActive: false,
+      dialog: false,
     }
+  },
+  components: {
+    JsonEditorVue
   },
   computed: {
     template_collect() {
@@ -157,6 +169,11 @@ export default {
         sub_title: 'Sub title',
         version: '0.0.1',
       }
+    },
+    edit_template(dag) {
+      this.template = {...dag}
+      this.dialog = true
+      console.log(this.template)
     },
     copy_template(dag) {
       const tpl = this.dagsStore.get_template(dag.name, dag.version)

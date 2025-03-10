@@ -82,7 +82,7 @@ class DAGManager(SingletonClass):
         dag = dag_base()
         if params:
           for key, value in params.items():
-            asyncio.run(dag.set_param(key, value, False))
+            asyncio.create_task(dag.set_param(key, value, False))
         return dag
 
   async def create_dag(self, name: str,

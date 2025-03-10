@@ -319,6 +319,6 @@ class PinsManager(SingletonClass):
       dag = self.pins_class[code]()
       if params:
         for key, value in params.items():
-          asyncio.run(dag.set_param(key, value, send_update=False))
+          asyncio.create_task(dag.set_param(key, value, send_update=False))
       return dag
     return None

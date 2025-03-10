@@ -1,4 +1,4 @@
-uvicorn==0.34.0 # библиотека для запуска ASGI сервера
+uvicorn[standard]==0.34.0 # библиотека для запуска ASGI сервера
 nest_asyncio==1.6.0 # библиотека для работы с asyncio
 fastapi==0.115.8 # библиотека для создания веб-приложений
 SQLAlchemy==1.4.51 # библиотека для работы с базами данных
@@ -8,3 +8,6 @@ python-multipart==0.0.20 # библиотека для работы с multipart
 paho-mqtt==1.5.1 # библиотека для работы с MQTT
 crontab==0.23.0 # библиотека для работы с cron
 future==1.0.0 # библиотека для работы с Python 2
+websockets==15.0 # библиотека для работы с WebSocket server
+websocket-client==1.2.3 # библиотека для работы с WebSocket client
+wsproto==1.2.0 # библиотека для работы с WebSocket

@@ -320,12 +320,29 @@ export const useDagsStore = defineStore("dags", {
         messageStore.addMessage({type: "error", text: "Ошибка при удалении связи."});
       }
     },
+    async restart_dags() {
+      alert('restart_dags in work')
+    },
     async add_template(template) {
       const messageStore = useMessageStore();
+      let url = `/api/templates` + (template.id ? `/${template.id}` : '')
+      // get only keys: name, template, version, description, sub_title, template
+      let data = {}
+      for (let key of ['name', 'template', 'version', 'description', 'sub_title']) {
+        if (template[key]) {
+          if (key === 'template') {
+            if (typeof template[key] !== 'string') {
+              template[key] = JSON.stringify(template[key])
+            }
+            template[key] = JSON.parse(template[key])
+          }
+          data[key] = template[key]
+        }
+      }
       try {
-        const response = await secureFetch(`/api/templates`, {
+        const response = await secureFetch(url, {
           method: "POST",
-          data: template
+          data
         });
         const answer = await response.json();
         if (answer.code !== 'ok') {

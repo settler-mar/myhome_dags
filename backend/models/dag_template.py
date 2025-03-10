@@ -37,7 +37,7 @@ class DAGTemplateBase(DAGNode, rootDag):
     super().__init__()
 
     if 'dags' in template:
-      dag_id_map = asyncio.run(self.create_from_json(template['dags']))
+      dag_id_map = asyncio.create_task(self.create_from_json(template['dags']))
 
     for input_group in [self.input_groups, self.params_groups, self.output_groups]:
       for input_dag in input_group:
