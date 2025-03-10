@@ -66,24 +66,62 @@ sudo systemctl start activemq
 sudo systemctl enable activemq
 
 # run run.sh from current directory as service
-sudo cat <<EOF > /tmp/server_app.service
-[Unit]
-Description=server_app
+#sudo cat <<EOF > /tmp/server_app.service
+#[Unit]
+#Description=server_app
+#
+#[Service]
+#ExecStart=/bin/bash $HOME/run.sh
+#
+#[Install]
+#WantedBy=multi-user.target
+#EOF
+#sudo mv /tmp/server_app.service /etc/systemd/system/server_app.service
+#sudo systemctl daemon-reload
+#sudo systemctl start server_app
 
-[Service]
-ExecStart=/bin/bash $HOME/run.sh
+sudo cat <<EOF > /tmp/my_server
+#!/bin/bash
 
-[Install]
-WantedBy=multi-user.target
+### BEGIN INIT INFO
+# Provides:          My_server
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Example initscript
+# Description:       This service is used to manage a servo
+### END INIT INFO
+
+case "$1" in
+    start)
+        echo "Starting my server"
+        cd $HOME
+        make run
+        ;;
+    stop)
+        echo "Stopping my server"
+        ;;
+    *)
+        echo "Usage: /etc/init.d/my_server start"
+        exit 1
+        ;;
+esac
+
+exit 0
 EOF
-sudo mv /tmp/server_app.service /etc/systemd/system/server_app.service
-sudo systemctl daemon-reload
-sudo systemctl start server_app
+sudo mv /tmp/my_server /etc/init.d/my_server
+sudo chmod 755 /etc/init.d/my_server
+sudo chown root:root /etc/init.d/my_server
+sudo update-rc.d my_server defaults
 
 #go to backend directory
 cd $HOME/backend
-pip3 install -r requirements.txt
+python3 -m pip install uvicorn --break-system-packages
+python3 -m pip install pyyaml --break-system-packages
+pip3 install -r requirements.txt --break-system-packages
 
 #go to frontend directory
 cd $HOME/frontend
 yarn install
+yarn run build

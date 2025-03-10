@@ -2,7 +2,16 @@
 .idea/
 /log/
 docker_prod/zigbee2mqtt/configuration.yaml
+zigbee2mqtt/coordinator_backup.json
+zigbee2mqtt/log/
+
 logs/
+
+.cache/
+.local/
+.npm/
+.yarn/
+
 
 # Back
 __pycache__/

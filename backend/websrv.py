@@ -8,6 +8,7 @@ from orchestrator.orchestrator import router as orchestrator_router, Orchestrato
 from orchestrator.template_manager import router as template_router, TemplateManager
 from utils.socket_utils import connection_manager
 from pathlib import Path
+from os import path
 from utils.db_utils import init_db
 import nest_asyncio
 from utils.auth import create_auth_route
@@ -76,20 +77,20 @@ async def websocket_endpoint(websocket: WebSocket, access_token=Cookie(None)):
 # Serve the Vue app in production mode
 try:
   # Directory where Vue app build output is located
-  build_dir = Path(__file__).resolve().parent / "dist"
-  index_path = build_dir / "index.html"
+  build_dir = path.realpath(path.join(path.dirname(__file__), "../dist"))
+  index_path = path.join(build_dir, "index.html")
 
   # Serve assets files from the build directory
-  app.mount("/assets", StaticFiles(directory=build_dir / "assets"), name="assets")
+  app.mount("/assets", StaticFiles(directory=path.join(build_dir, "assets")), name="assets")
 
 
   # Catch-all route for SPA
   @app.get("/{catchall:path}")
   async def serve_spa(catchall: str):
     # If the requested file exists, serve it, else serve index.html
-    path = build_dir / catchall
-    if path.is_file():
-      return FileResponse(path)
+    file_path = path.join(build_dir, catchall)
+    if path.exists(file_path) and path.isfile(file_path):
+      return FileResponse(file_path)
     return FileResponse(index_path)
 
 except RuntimeError:

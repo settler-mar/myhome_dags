@@ -1,6 +1,6 @@
 version: "3.6"
 services:
-  app:
+  server:
     container_name: app_server
     restart: always
     image: server
@@ -8,10 +8,10 @@ services:
       context: ./
       dockerfile: Dockerfile
     ports:
-        - 8080:8080
+      - 3000:3000
     volumes:
-        - ./frontend:/app/frontend
-        - ./backend:/app/backend
+      - ./backend:/app/backend
+      - ./frontend/dist:/app/dist
     networks:
       - cedalo-platform
 
