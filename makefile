@@ -14,7 +14,7 @@ run_backend:
 	cd backend && uvicorn websrv:app --reload --host 0.0.0.0 --port 3000
 
 run_frontend:
-	cd frontend && npm run serve
+	cd frontend && yarn run serve
 
 run_docker:
 	cd docker && bash start.sh
@@ -25,32 +25,11 @@ run:
 start:
 	make run
 
-# Testing
-install_test:
-	pip install coverage pytest pytest-cov
+build_frontend:
+	cd frontend && yarn run build
 
-test:
-	cd backend && pytest --cov-report term --cov=. --cov-report=html -sx
+run_prod:
+	cd docker_prod && sudo docker compose up -d
 
-# Code quality
-format:
-	# -----  Formatting Python code with Black
-	cd backend && black .
-
-	# -----  Formatting JavaScript code with Prettier
-	cd frontend && npm run prettier
-
-check:
-	# -----  Validating Black code style
-	cd backend && black --check --diff .
-
-	# -----  Validating Flake8 code style
-	cd backend && flake8 .
-
-	# -----  Validating Prettier code style
-	cd frontend && npm run prettier:check
-
-	# -----  Validating CSpell errors
-	cspell --no-progress .
-
-	# ----- The code is formatted correctly
+stop_prod:
+	cd docker_prod && sudo docker compose down

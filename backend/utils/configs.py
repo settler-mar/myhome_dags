@@ -7,6 +7,7 @@ import string
 import os
 
 default_config = {
+  'dist_path': 'dist',
   'auth': {
     'algorithm': 'HS256',
     'expire_minutes': 24 * 60 * 60 * 60,
@@ -19,7 +20,7 @@ default_config = {
     }
   },
   'db': {
-    'url': 'sqlite:///../sql_app.db',
+    'url': 'sqlite:///../store/sql_app.db',
     'echo': False,
     'echo_pool': False
   }
@@ -31,8 +32,11 @@ class AppConfig:
   _need_save: bool = False
 
   def __init__(self, config_path: str = None):
+    config_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'store'))
+    if not os.path.exists(config_dir):
+      os.makedirs(config_dir)
     if config_path is None:
-      config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'config.yaml')
+      config_path = os.path.join(config_dir, 'config.yaml')
     self._config_path = config_path
     self._config = self._load_yaml()
     self._test_config()

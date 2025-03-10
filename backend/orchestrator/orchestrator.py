@@ -37,7 +37,7 @@ class Orchestrator(SingletonClass, rootDag):
     print('Orchestrator loaded from file')
     if os.path.exists('orchestrator.json'):
       with open('orchestrator.json', 'r') as f:
-        asyncio.run(self.create_from_json(json.loads(f.read())))
+        asyncio.create_task(self.create_from_json(json.loads(f.read())))
 
 
 @router.get("/orchestrator/save", tags=["dags"], dependencies=[Depends(RoleChecker('admin'))])

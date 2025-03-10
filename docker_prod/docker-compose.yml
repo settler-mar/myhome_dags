@@ -18,13 +18,14 @@ services:
     restart: always
     image: server
     build:
-      context: ./
+      context: ../
       dockerfile: Dockerfile
     ports:
-        - 3000:3000
+      - 3000:3000
     volumes:
-        - ../backend:/app/backend
-        - ../frontend/dist:/app/dist
+      - ../backend:/app/backend
+      - ../frontend/dist:/app/dist
+      - ../store:/app/store
     networks:
       - cedalo-platform
 networks:

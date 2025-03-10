@@ -16,6 +16,9 @@ class OutputPinClass(BasePin):
     from models.devices import Devices
     devices = Devices()
 
-    if devices.ports and int(self.params['pin_id']) in devices.ports:
-      value = self.input_values.get('default', {}).get('new_value', (0, 0))[0]
-      devices.ports[int(self.params['pin_id'])].set_value(value)
+    pin_id = int(self.params['pin_id'])
+    if not devices.ports or pin_id not in devices.ports:
+      print('🤖 output pin is not output', pin_id)
+      return
+    value = self.input_values.get('default', {}).get('new_value', (0, 0))[0]
+    devices.ports[pin_id].set_value(value)

@@ -29,7 +29,7 @@ class InputPinClass(BasePin):
       'key': key,
       'new_value': new_value,
     }
-    print('Income value', data)
+    print('🤖 input pin income_value', data)
     if prev_value is not None:
       data['prev_value'] = prev_value
     self.set_output(data)

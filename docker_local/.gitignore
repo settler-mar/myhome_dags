@@ -1,3 +1,5 @@
 state.json
 log/*
 log.txt
+zigbee2mqtt/coordinator_backup.json
+zigbee2mqtt/log/

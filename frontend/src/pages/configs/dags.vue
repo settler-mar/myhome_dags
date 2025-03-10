@@ -64,6 +64,9 @@
         <v-col cols="auto">
           <v-btn density="compact" icon="mdi-package-down" height="52" width="52" @click="save_dags"></v-btn>
         </v-col>
+        <v-col>
+          <v-btn density="compact" icon="mdi-restart" height="52" width="52" @click="dagsStore.restart_dags"></v-btn>
+        </v-col>
         <tabs
           v-model:model="dagsStore.page"
           :list="pages"

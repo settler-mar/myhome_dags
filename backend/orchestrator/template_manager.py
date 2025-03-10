@@ -50,6 +50,7 @@ class DAGTemplate(BaseModel):
   version: str = Field(default='0.0.1', title='Версия шаблона', description='Версия шаблона')
   description: str = Field(default='', title='Описание', description='Описание')
   sub_title: str = Field(default='', title='Подзаголовок', description='Подзаголовок')
+  template: dict = Field(default={}, title='Шаблон', description='Шаблон')
 
 
 @router.post("/templates", tags=["dags_templates"], dependencies=[Depends(RoleChecker('admin'))])
@@ -66,6 +67,25 @@ async def create_template(template: DAGTemplate, db: Session = Depends(db_sessio
   data = {k: v for k, v in template.items() if k != '_sa_instance_state'}
   await connection_manager.broadcast({"type": "template",
                                       "action": "add",
+                                      "data": data})
+  return {'code': 'ok'}
+
+
+# update by id
+@router.post("/templates/{tpl_id}", tags=["dags_templates"], dependencies=[Depends(RoleChecker('admin'))])
+async def update_template_by_id(tpl_id: int, template: DAGTemplate, db: Session = Depends(db_session)):
+  db_tpl = db.query(Template).filter(Template.id == tpl_id).first()
+  if not db_tpl:
+    return {'code': 'error', 'message': 'Template not found'}
+  db_tpl.description = template.description
+  db_tpl.sub_title = template.sub_title
+  db_tpl.template = template.template
+  db_tpl.updated_at = datetime.now()
+  db.commit()
+  template = db.query(Template).filter(Template.id == tpl_id).first().__dict__
+  data = {k: v for k, v in template.items() if k != '_sa_instance_state'}
+  await connection_manager.broadcast({"type": "template",
+                                      "action": "update",
                                       "data": data})
   return {'code': 'ok'}
 

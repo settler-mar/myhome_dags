@@ -80,10 +80,12 @@ class Port:
           value = round(value, 4)
       return value, value
     if self.type == 'binary' and self.values_variant:
-      return int(value), self.values_variant[int(value) > 0]
+      value = int(value)
+      return value, self.values_variant[value > 0]
     return value, value
 
   def set_value(self, value):  # set new value and send to device
+    print('🤖 set port value', self.device_id, self._id, self.code, value)
     value, raw_value = self._value_to_raw(value)
     self.value = value
     self.last_send = datetime.now()
@@ -319,6 +321,6 @@ class PinsManager(SingletonClass):
       dag = self.pins_class[code]()
       if params:
         for key, value in params.items():
-          asyncio.run(dag.set_param(key, value, send_update=False))
+          asyncio.create_task(dag.set_param(key, value, send_update=False))
       return dag
     return None

@@ -110,10 +110,10 @@ esac
 
 exit 0
 EOF
-sudo mv /tmp/my_server /etc/init.d/my_server
-sudo chmod 755 /etc/init.d/my_server
-sudo chown root:root /etc/init.d/my_server
-sudo update-rc.d my_server defaults
+#sudo mv /tmp/my_server /etc/init.d/my_server
+#sudo chmod 755 /etc/init.d/my_server
+#sudo chown root:root /etc/init.d/my_server
+#sudo update-rc.d my_server defaults
 
 #go to backend directory
 cd $HOME/backend

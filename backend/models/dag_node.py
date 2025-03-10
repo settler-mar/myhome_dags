@@ -101,7 +101,7 @@ class DAGNode:
       asyncio.run(self.send_update())
 
   async def send_update(self):
-    await connection_manager.broadcast({"type": "dag", "action": "update", "data": self.get_json()})
+    return await connection_manager.broadcast({"type": "dag", "action": "update", "data": self.get_json()})
 
   async def set_param(self, name: str, value: any, send_update: bool = True):
     """Устанавливает параметр узла"""
@@ -155,7 +155,10 @@ class DAGNode:
 
   def set_output(self, value: Any, output_group: Optional[str] = 'default'):
     """Устанавливает выходной узел (перезаписывает предыдущие)"""
-    if not isinstance(value, dict) or 'new_value' not in value:
+    if isinstance(value, tuple) and len(value) == 1 and isinstance(value[0], dict) and 'new_value' in value[0]:
+      value = value[0]
+    elif not isinstance(value, dict) or 'new_value' not in value:
+      print(f"💥 add wrapper for {value}")
       value = {
         'key': [],
         'new_value': (value, datetime.now().timestamp()),

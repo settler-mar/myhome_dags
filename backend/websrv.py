@@ -16,8 +16,6 @@ from utils.configs import config
 from models.connections import init_connectors
 from models.devices import devices_init
 
-nest_asyncio.apply()
-
 # from init import init
 
 PORT = 3000
@@ -41,6 +39,8 @@ connectors = init_connectors(app)
 devices_init(app)
 connectors.start_connectors()
 
+
+# nest_asyncio.apply()
 
 # Add alive status route
 @app.get("/api")
@@ -77,7 +77,8 @@ async def websocket_endpoint(websocket: WebSocket, access_token=Cookie(None)):
 # Serve the Vue app in production mode
 try:
   # Directory where Vue app build output is located
-  build_dir = path.realpath(path.join(path.dirname(__file__), "../dist"))
+  build_dir = path.realpath(path.join(path.dirname(__file__), "..", config['dist_path']))
+  print('build_dir', build_dir)
   index_path = path.join(build_dir, "index.html")
 
   # Serve assets files from the build directory

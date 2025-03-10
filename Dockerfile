@@ -4,8 +4,7 @@ RUN apt-get update && apt-get install -y curl
 
 WORKDIR /app/backend
 COPY backend/ .
-RUN python -m pip install uvicorn
-run python -m pip install pyyaml
+RUN python -m pip install uvicorn pyyaml websockets
 RUN python -m pip install -r requirements.txt
 EXPOSE 3000
 
