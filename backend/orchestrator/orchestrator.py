@@ -35,8 +35,8 @@ class Orchestrator(SingletonClass, rootDag):
       return
 
     print('Orchestrator loaded from file')
-    if os.path.exists('orchestrator.json'):
-      with open('orchestrator.json', 'r') as f:
+    if os.path.exists('../store/orchestrator.json'):
+      with open('../store/orchestrator.json', 'r') as f:
         asyncio.create_task(self.create_from_json(json.loads(f.read())))
 
 
@@ -45,7 +45,7 @@ async def save_dags():
   """
   Save all DAGs to file
   """
-  with open('orchestrator.json', 'w') as f:
+  with open('../store/orchestrator.json', 'w') as f:
     f.write(json.dumps(Orchestrator().list_dags(is_clean=True, load_all=True)))
   return {'status_code': 200}
 

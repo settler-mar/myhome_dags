@@ -325,10 +325,10 @@ export const useDagsStore = defineStore("dags", {
     },
     async add_template(template) {
       const messageStore = useMessageStore();
-      let url = `/api/templates` + (template.id ? `/${template.id}` : '')
+      let url = `/api/templates` + (template.id ? `/save` : '')
       // get only keys: name, template, version, description, sub_title, template
       let data = {}
-      for (let key of ['name', 'template', 'version', 'description', 'sub_title']) {
+      for (let key of ['name', 'template', 'version', 'description', 'sub_title', 'id']) {
         if (template[key]) {
           if (key === 'template') {
             if (typeof template[key] !== 'string') {

@@ -26,10 +26,13 @@ start:
 	make run
 
 build_frontend:
-	cd frontend && yarn run build
+	cd frontend && yarn install && yarn run build
 
 run_prod:
 	cd docker_prod && sudo docker compose up -d
 
 stop_prod:
 	cd docker_prod && sudo docker compose down
+
+deploy:
+	bash deploy.sh
