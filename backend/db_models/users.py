@@ -18,14 +18,14 @@ class User(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True)
-  username = Column(String, unique=True, index=True)
+  username = Column(String(20), unique=True, index=True)
   password = Column(PasswordHash)
-  full_name = Column(String)
-  email = Column(String, unique=True, index=True)
+  full_name = Column(String(100))
+  email = Column(String(100), unique=True, index=True)
   is_active = Column(Boolean, default=True)
-  role = Column(String)
+  role = Column(String(20))
   tg_id = Column(Integer, unique=True, index=True)
-  otp = Column(String)
+  otp = Column(String(100))
   last_login = Column(DateTime, default=datetime.utcnow)
   login_count = Column(Integer, default=0)
 
@@ -38,7 +38,6 @@ class User(BaseModelDB):
     tg_id: int
     otp: str = None
 
-
   def set_last_login(self):
     self.last_login = datetime.utcnow()
     self.login_count += 1
@@ -49,7 +48,7 @@ class User(BaseModelDB):
     db = db_session()
     count_users = db.query(User).count()
     if count_users == 0:
-      admin = User(username='admin', password='admin', role='root', created_by=0, updated_by=0)
+      admin = User(username='admin', password='admin', role='root', created_by=None, updated_by=None)
       db.add(admin)
       db.commit()
 

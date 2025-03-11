@@ -20,9 +20,13 @@ default_config = {
     }
   },
   'db': {
+    # mysql
+    #   check_same_thread: null
+    #   url: mysql+mysqlconnector://root:root@192.168.0.78:3306/server
     'url': 'sqlite:///../store/sql_app.db',
     'echo': False,
-    'echo_pool': False
+    'echo_pool': False,
+    'check_same_thread': True
   }
 }
 

@@ -21,14 +21,14 @@ class Ports(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True)
-  code = Column(String)
-  name = Column(String, unique=True, index=True)
-  label = Column(String)
-  description = Column(String)
+  code = Column(String(100))
+  name = Column(String(100), unique=True, index=True)
+  label = Column(String(100))
+  description = Column(String(255))
   access = Column(Integer)
-  mode = Column(String)
-  type = Column(String)
-  unit = Column(String)
+  mode = Column(String(20))
+  type = Column(String(20))
+  unit = Column(String(20))
   values_variant = Column(List)
 
   @declared_attr

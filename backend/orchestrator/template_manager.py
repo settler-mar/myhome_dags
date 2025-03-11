@@ -33,7 +33,7 @@ class TemplateManager(SingletonClass):
 
     if params:
       print('init template with params', params)
-      asyncio.run(dag.set_params(params, False))
+      asyncio.create_task(dag.set_params(params, False))
       # for key, value in params.items():
       #   dag.set_param(key, value, False)
     return dag

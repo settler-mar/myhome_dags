@@ -98,7 +98,7 @@ class DAGNode:
                                     dag_input_child_group != input_child_group or
                                     dag_input_type != to_type]
     if send_update:
-      asyncio.run(self.send_update())
+      asyncio.create_task(self.send_update())
 
   async def send_update(self):
     return await connection_manager.broadcast({"type": "dag", "action": "update", "data": self.get_json()})
@@ -217,7 +217,7 @@ class DAGNode:
           need_run[output_node][children_group] = True
           continue
         if input_type == 'param':
-          asyncio.run(output_node.set_param(children_group, value.get('new_value', [0, 0])[0]))
+          asyncio.create_task(output_node.set_param(children_group, value.get('new_value', [0, 0])[0]))
           continue
 
     # Запуск следующих в отдельном потоке

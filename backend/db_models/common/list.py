@@ -7,7 +7,7 @@ class List(TypeDecorator):
   def python_type(self):
     return object
 
-  impl = types.String
+  impl = types.String(1024)
 
   def process_bind_param(self, value, dialect):
     if isinstance(value, list):

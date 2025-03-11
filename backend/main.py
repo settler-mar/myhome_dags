@@ -21,7 +21,7 @@ def main():
   pr_dag = None
 
   # Добавление DAG-ов в оркестратор
-  asyncio.run(dag_manager.create_dag('tpl:New template1|0.0.3'))
+  asyncio.create_task(dag_manager.create_dag('tpl:New template1|0.0.3'))
 
   # for i in range(5):
   #   # Добавление DAG-ов в оркестратор

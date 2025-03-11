@@ -26,3 +26,4 @@ yarn.lock
 #store
 orchestrator.json
 store/config.yaml
+store/mysql_data/

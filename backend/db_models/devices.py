@@ -20,12 +20,12 @@ class Devices(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True)
-  code = Column(String, unique=True, index=True)
-  name = Column(String, unique=True, index=True)
-  model = Column(String)
-  vendor = Column(String)
-  description = Column(String)
-  type = Column(String)
+  code = Column(String(100), unique=True, index=True)
+  name = Column(String(100), unique=True, index=True)
+  model = Column(String(100))
+  vendor = Column(String(100))
+  description = Column(String(255))
+  type = Column(String(20))
   params = Column(Json)
 
   @declared_attr

@@ -34,55 +34,73 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Получаем список игнорируемых файлов с помощью git ls-files
-IGNORED_FILES=$(git ls-files --others --ignored --exclude-standard)
+git reset
+git add .
 
-# Функция для записи изменений файлов в лог
-log_file_change() {
-    local file="$1"
-    local action="$2"
-    local size_before="$3"
-    local size_after="$4"
+# Создаем список файлов в текущей и новой версии
+echo "📋 Создаем списки файлов из новой версии..." | tee -a "$LOG_FILE"
+cd "$TMP_DIR"
+python3 dist_list.py
+cp file_list.txt "$CURRENT_DIR/file_list.txt"
+cd "$CURRENT_DIR"
 
-    echo "$action: $file | Размер до: $size_before, Размер после: $size_after" >>"$LOG_FILE"
-}
+# Формируем список задач
+echo "📋 Создаем списки файлов действий..." | tee -a "$LOG_FILE"
+python3 dist_list.py
 
 # Проверка и копирование файлов с rsync, получение изменений
 echo "🔄 Обновление файлов..." | tee -a "$LOG_FILE"
-rsync -a --dry-run --info=progress2 --exclude=".git" --exclude-from=<(echo "$IGNORED_FILES") "$TMP_DIR/" "$CURRENT_DIR/" | while read -r line; do
-    if [[ "$line" =~ ^[[:space:]]*([^ ]+)[[:space:]]+([A-Za-z]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+) ]]; then
-        # Получаем имя файла, действие и размеры до/после
-        file="${BASH_REMATCH[1]}"
-        action="${BASH_REMATCH[2]}"
-        size_before="${BASH_REMATCH[3]}"
-        size_after="${BASH_REMATCH[4]}"
-
-        # Логируем изменения
-        log_file_change "$file" "$action" "$size_before" "$size_after"
-    fi
-done
-
-# Копирование файлов без dry-run, чтобы применить изменения
-echo "✅ Файлы обновлены!" | tee -a "$LOG_FILE"
-rsync -a --exclude=".git" --exclude-from=<(echo "$IGNORED_FILES") "$TMP_DIR/" "$CURRENT_DIR/"
-
-# Проверка на изменения во фронтенде и его сборка, если нужно
-echo "🔍 Проверяем изменения во фронтенде..." | tee -a "$LOG_FILE"
 BUILD_FRONTEND=false
-cd "$CURRENT_DIR/frontend" || exit 1
-TRACKED_FILES=$(git ls-files frontend)
-for FILE in $TRACKED_FILES; do
-    if ! diff -q "$CURRENT_DIR/$FILE" "$TMP_DIR/$FILE" >/dev/null 2>&1; then
+BUILD_BACKEND=false
+while IFS= read -r line
+do
+    action=$(echo $line | cut -d ' ' -f 1)
+    file=$(echo $line | cut -d ' ' -f 2)
+    case $action in
+        "d")
+            echo "🗑 Удаление файла: $file" | tee -a "$LOG_FILE"
+            rm -rf "$CURRENT_DIR/$file"
+            ;;
+        "u")
+            echo "🔄 Обновление файла: $file" | tee -a "$LOG_FILE"
+            cp "$TMP_DIR/$file" "$CURRENT_DIR/$file"
+            ;;
+        "c")
+            echo "📝 Создание файла: $file" | tee -a "$LOG_FILE"
+            cp "$TMP_DIR/$file" "$CURRENT_DIR/$file"
+            ;;
+    esac
+    if [[ $action == "u" || $action == "c" ]] && [[ $file == "frontend"* ]]; then
         BUILD_FRONTEND=true
-        echo "⚠ Изменен файл: $FILE" >>"$LOG_FILE"
     fi
-done
-cd "$CURRENT_DIR"
+    if [[ $action == "u" || $action == "c" ]] && [[ $file == "backend/requirements.txt" ]]; then
+        BUILD_BACKEND=true
+    fi
+done < file_to_process.txt
+git reset
+rm file_to_process.txt || true
+rm file_list.txt || true
 
 if [ "$BUILD_FRONTEND" = true ]; then
     echo "✅ Изменения найдены. Фронтенд будет пересобран." | tee -a "$LOG_FILE"
 else
     echo "✅ Изменений нет. Билд фронтенда не требуется." | tee -a "$LOG_FILE"
+fi
+
+
+if [ "$BUILD_BACKEND" = true ]; then
+    echo "✅ Изменения найдены. Бэкенд будет пересобран." | tee -a "$LOG_FILE"
+else
+    echo "✅ Изменений нет. Билд бэкенда не требуется." | tee -a "$LOG_FILE"
+fi
+
+# Билд бэкенда, если были изменения
+if [ "$BUILD_BACKEND" = true ]; then
+    echo "⚙ Запускаем билд бэкенда..." | tee -a "$LOG_FILE"
+    cd "$CURRENT_DIR/backend" || exit 1
+    pip install -r requirements.txt --break-system-packages>>"$LOG_FILE" 2>&1
+    sudo docker rm app_server --force
+    sudo docker image rm server --force >>"$LOG_FILE" 2>&1
 fi
 
 # Билд фронтенда, если были изменения

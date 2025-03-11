@@ -7,10 +7,10 @@ class Template(Base):
   __tablename__ = "templates"
 
   id = Column(Integer, primary_key=True, index=True)
-  name = Column(String, nullable=False)
+  name = Column(String(55), nullable=False)
   template = Column(Json)
-  version = Column(String)
-  description = Column(String)
-  sub_title = Column(String)
+  version = Column(String(20))
+  description = Column(String(255))
+  sub_title = Column(String(100))
   created_at = Column(DateTime, default=datetime.utcnow)
   updated_at = Column(DateTime, default=datetime.utcnow)

@@ -19,10 +19,10 @@ class Locations(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True)
-  name = Column(String, unique=True, index=True)
-  color = Column(String)
-  description = Column(String)
-  icon = Column(String)
+  name = Column(String(50), unique=True, index=True)
+  color = Column(String(20))
+  description = Column(String(255))
+  icon = Column(String(100))
 
   class CreateSchema(BaseModel):
     name: str

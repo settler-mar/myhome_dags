@@ -11,3 +11,4 @@ future==1.0.0 # библиотека для работы с Python 2
 websockets==15.0 # библиотека для работы с WebSocket server
 websocket-client==1.2.3 # библиотека для работы с WebSocket client
 wsproto==1.2.0 # библиотека для работы с WebSocket
+mysql_connector_python==9.2.0 # библиотека для работы с MySQL

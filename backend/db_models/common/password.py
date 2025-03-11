@@ -5,7 +5,7 @@ from utils.auth import pwd_context, RoleChecker, CurrentUser
 
 
 class PasswordHash(TypeDecorator):
-  impl = String
+  impl = String(256)
 
   def process_bind_param(self, value, dialect):
     if value:

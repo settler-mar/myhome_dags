@@ -7,7 +7,7 @@ class Json(TypeDecorator):
   def python_type(self):
     return object
 
-  impl = types.String
+  impl = types.String(2048)
 
   def process_bind_param(self, value, dialect):
     return json.dumps(value)
