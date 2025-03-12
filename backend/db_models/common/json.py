@@ -1,13 +1,12 @@
 import json
 from sqlalchemy import TypeDecorator, types
 
-
 class Json(TypeDecorator):
   @property
   def python_type(self):
     return object
 
-  impl = types.String(2048)
+  impl = types.Text
 
   def process_bind_param(self, value, dialect):
     return json.dumps(value)

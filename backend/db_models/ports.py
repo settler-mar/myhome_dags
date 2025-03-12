@@ -22,7 +22,7 @@ class Ports(BaseModelDB):
 
   id = Column(Integer, primary_key=True, index=True)
   code = Column(String(100))
-  name = Column(String(100), unique=True, index=True)
+  name = Column(String(100), index=True)
   label = Column(String(100))
   description = Column(String(255))
   access = Column(Integer)

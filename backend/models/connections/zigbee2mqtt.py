@@ -16,7 +16,7 @@ from datetime import datetime
 def collect_port(port, device_id, mode) -> DbPorts:
   db_port = DbPorts()
   db_port.device_id = device_id
-  db_port.created_by = 0
+  db_port.created_by = None
   db_port.mode = mode
   if 'features' in port and len(port['features']) > 0:
     port.update(port['features'][0])
@@ -167,7 +167,7 @@ class Zigbee2mqttClass:
           db = db_session()
           db_device = DbDevices()
           db_device.connection_id = self._id
-          db_device.created_by = 0
+          db_device.created_by = None
           for key, value in item.items():
             if hasattr(db_device, key):
               setattr(db_device, key, value)

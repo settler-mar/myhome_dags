@@ -106,7 +106,7 @@ fi
 # Билд фронтенда, если были изменения
 if [ "$BUILD_FRONTEND" = true ]; then
     echo "⚙ Запускаем билд фронтенда..." | tee -a "$LOG_FILE"
-    cd "$CURRENT_DIR/frontend" || exit 1
+     cd "$CURRENT_DIR" || exit 1
     make build_frontend >>"$LOG_FILE" 2>&1
     cd "$CURRENT_DIR"
 fi

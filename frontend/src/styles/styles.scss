@@ -1,5 +1,5 @@
 
-[tooltip]::before {
+[tooltip]:before {
   content: attr(tooltip);
   position: absolute;
   background: #333;
@@ -15,16 +15,17 @@
   max-height: 0;
   overflow: hidden;
   transition: opacity 0.2s .5s, padding 0s .8s, height 0s .8s, max-height 0s .8s;
+  font-size: 4px;
 }
 
-[tooltip]:hover::before {
+[tooltip]:hover:before {
   opacity: .9;
-  padding: 4px 8px;
+  padding: 0px 6px;
   max-height: 100px;
   transition: opacity 0.2s, padding 0s, height 0s, max-height 0s;
 }
 
-[tooltip].on_dnd::before {
+[tooltip].on_dnd:before {
   display: none;
   content: none;
 }

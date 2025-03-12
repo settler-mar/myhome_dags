@@ -84,7 +84,7 @@ def check_structure():
 
   update_struct_function = {
     'sqlite': update_struct_sqlite,
-  }.get(config['db']['url'].split(':')[0].split('+')[0], lambda: update_struct_default)
+  }.get(config['db']['url'].split(':')[0].split('+')[0], update_struct_default)
 
   inspector = inspect(engine)
   for table_name in Base.metadata.tables:
