@@ -72,31 +72,39 @@ async def websocket_endpoint(websocket: WebSocket, access_token=Cookie(None)):
     await connection_manager.broadcast("A client just disconnected.")
 
 
-# dags
+def join_dist():
+  # Serve the Vue app in production mode
+  try:
+    # Directory where Vue app build output is located
+    build_dir = path.realpath(path.join(path.dirname(__file__), ".."))
+    if path.exists(path.join(build_dir, 'dist')):
+      build_dir = path.join(build_dir, 'dist')
+    elif path.exists(path.join(build_dir, 'frontend')) and path.exists(path.join(build_dir, 'frontend', 'dist')):
+      build_dir = path.join(build_dir, 'frontend', 'dist')
+    else:
+      print('No build directory found')
+      return
+    print('build_dir', build_dir)
+    index_path = path.join(build_dir, "index.html")
 
-# Serve the Vue app in production mode
-try:
-  # Directory where Vue app build output is located
-  build_dir = path.realpath(path.join(path.dirname(__file__), "..", config['dist_path']))
-  print('build_dir', build_dir)
-  index_path = path.join(build_dir, "index.html")
+    # Serve assets files from the build directory
+    app.mount("/assets", StaticFiles(directory=path.join(build_dir, "assets")), name="assets")
 
-  # Serve assets files from the build directory
-  app.mount("/assets", StaticFiles(directory=path.join(build_dir, "assets")), name="assets")
+    # Catch-all route for SPA
+    @app.get("/{catchall:path}")
+    async def serve_spa(catchall: str):
+      # If the requested file exists, serve it, else serve index.html
+      file_path = path.join(build_dir, catchall)
+      if path.exists(file_path) and path.isfile(file_path):
+        return FileResponse(file_path)
+      return FileResponse(index_path)
+
+  except RuntimeError:
+    # The build directory does not exist
+    print("No build directory found. Running in development mode.")
 
 
-  # Catch-all route for SPA
-  @app.get("/{catchall:path}")
-  async def serve_spa(catchall: str):
-    # If the requested file exists, serve it, else serve index.html
-    file_path = path.join(build_dir, catchall)
-    if path.exists(file_path) and path.isfile(file_path):
-      return FileResponse(file_path)
-    return FileResponse(index_path)
-
-except RuntimeError:
-  # The build directory does not exist
-  print("No build directory found. Running in development mode.")
+join_dist()
 
 # Initialize the app
 # init()

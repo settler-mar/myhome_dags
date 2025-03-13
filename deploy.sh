@@ -117,8 +117,12 @@ if [ "$BUILD_BACKEND" = true ]; then
     sudo docker image rm server --force >>"$LOG_FILE" 2>&1
 fi
 
+# set permissions and ownership in store dir for all files
+sudo chmod -R 777 "$CURRENT_DIR/store"
+sudo chown -R "$(whoami):$(whoami)" "$CURRENT_DIR/store"
 
 # Запуск сервера
+cd "$CURRENT_DIR" || exit 1
 echo "🚀 Запускаем сервер..." | tee -a "$LOG_FILE"
 make run_prod >>"$LOG_FILE" 2>&1
 

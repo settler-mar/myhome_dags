@@ -30,6 +30,6 @@ class OutputDag(DAGNode):
     self.root_tpl = root_tpl
 
   def process(self, input_keys: List[str]):
-    self.root_tpl.updated_output = {key: self.input_values.get(key, None) for key in input_keys}
-    print('🔗 tpl output', id(self.root_tpl), self.root_tpl, self.updated_output, self.input_values)
+    self.root_tpl.updated_output = {self.name: self.input_values.get(key, None) for key in input_keys}
+    print('🔗 tpl output', self.name, id(self), id(self.root_tpl), self.updated_output, self.input_values)
     self.root_tpl._run_next()

@@ -212,17 +212,22 @@ class DAGNode:
       for input_type, output_node, children_group in self.outputs.get(output_group, []):
         if input_type == 'in':
           output_node.set_input(value, children_group)
-          if output_node not in need_run:
-            need_run[output_node] = {}
-          need_run[output_node][children_group] = True
-          continue
-        if input_type == 'param':
+          key = (id(output_node), output_node)
+          if key not in need_run:
+            need_run[key] = set()
+          need_run[key].add(children_group)
+        elif input_type == 'param':
           asyncio.create_task(output_node.set_param(children_group, value.get('new_value', [0, 0])[0]))
-          continue
+        else:
+          print(f"💥 {self} {id(self)} Unknown input type {input_type} for {output_node}")
 
     # Запуск следующих в отдельном потоке
-    for node, input_keys in need_run.items():
-      node.process(input_keys.keys())
+    for _node, keys in need_run.items():
+      try:
+        _node[1].process(keys)
+      except Exception as e:
+        print(f"💥 {self} {id(self)} Error running {_node}: {e}")
+    print('🏁 run next', id(self), self)
 
   def stop_thread(self):
     try:

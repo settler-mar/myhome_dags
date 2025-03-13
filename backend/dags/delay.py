@@ -42,8 +42,8 @@ class DelayNode(DAGNode):
 
   def execute(self, input_keys: list):
     # Остановка узла
-    if 'stop' in input_keys is not None:
-      self.thread.stop_thread()
+    if 'stop' in input_keys:
+      self.stop_thread()
       self.input_values['stop'] = None
 
     # Запуск узла

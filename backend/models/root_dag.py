@@ -77,6 +77,8 @@ class rootDag:
           await self.add_dag(dag)
           pin['pin'] = dag
           dag_id_map[pin['id']] = dag
+          if 'name' in pin:
+            dag.name = pin['name']
 
     for dag_params in dag_json:
       if dag_params['id'] not in dag_id_map:

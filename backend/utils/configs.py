@@ -7,7 +7,6 @@ import string
 import os
 
 default_config = {
-  'dist_path': 'dist',
   'auth': {
     'algorithm': 'HS256',
     'expire_minutes': 24 * 60 * 60 * 60,

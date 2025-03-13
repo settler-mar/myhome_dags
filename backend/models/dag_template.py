@@ -37,12 +37,17 @@ class DAGTemplateBase(DAGNode, rootDag):
     super().__init__()
 
     def create_outputs(dag_ids: Dict[str, DAGNode]):
-      for input_group in [self.input_groups, self.params_groups, self.output_groups]:
+      print(f'🤓 {self}-{id(self)} init outs:')
+      for k, input_group in [('input', self.input_groups),
+                             ('port', self.params_groups),
+                             ('output', self.output_groups)]:
+        print(f'- {k}:')
         for input_dag in input_group:
           input_dag['outputs'] = input_dag.get('outputs', {}).get('default', [])
           for index, output in enumerate(input_dag['outputs']):
             if output[1] in dag_ids:
               input_dag['outputs'][index] = (output[0], dag_ids[output[1]], output[2])
+              print('   +', id(dag_ids[output[1]]), input_dag['outputs'][index])
 
       for output_dags in self.output_groups:
         output_dags['pin'].set_root_tpl(self)
