@@ -34,82 +34,89 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-git reset
-git add .
-
-# Создаем список файлов в текущей и новой версии
-echo "📋 Создаем списки файлов из новой версии..." | tee -a "$LOG_FILE"
-cd "$TMP_DIR"
-python3 dist_list.py
-cp file_list.txt "$CURRENT_DIR/file_list.txt"
+# переносим .git в текущую версию
+echo "🔄 Переносим .git в текущую версию..." | tee -a "$LOG_FILE"
 cd "$CURRENT_DIR"
+rm -rf "$CURRENT_DIR/.git"
+cp -r "$TMP_DIR/.git" "$CURRENT_DIR/.git"
 
-# Формируем список задач
-echo "📋 Создаем списки файлов действий..." | tee -a "$LOG_FILE"
-python3 dist_list.py
+change_permissions() {
+  local file="$1"
+  if [ -e "$file" ]; then
+    sudo chown "$(whoami):$(whoami)" "$file"  # Меняем владельца на текущего пользователя
+    sudo chmod u+w "$file"  # Даем право на запись
+  fi
+}
 
 # Проверка и копирование файлов с rsync, получение изменений
-echo "🔄 Обновление файлов..." | tee -a "$LOG_FILE"
+echo "🔄 Обновление файлов:" | tee -a "$LOG_FILE"
 BUILD_FRONTEND=false
 BUILD_BACKEND=false
-while IFS= read -r line
-do
-    action=$(echo $line | cut -d ' ' -f 1)
-    file=$(echo $line | cut -d ' ' -f 2)
-    case $action in
-        "d")
-            echo "🗑 Удаление файла: $file" | tee -a "$LOG_FILE"
-            rm -rf "$CURRENT_DIR/$file"
-            ;;
-        "u")
-            echo "🔄 Обновление файла: $file" | tee -a "$LOG_FILE"
+while read -r status file; do
+    case $status in
+        "M"|"MM")
+            echo "  * upd: $file" | tee -a "$LOG_FILE"
+            change_permissions "$CURRENT_DIR/$file"
             cp "$TMP_DIR/$file" "$CURRENT_DIR/$file"
             ;;
-        "c")
-            echo "📝 Создание файла: $file" | tee -a "$LOG_FILE"
+        "D")
+            echo "  + crt: $file" | tee -a "$LOG_FILE"
             cp "$TMP_DIR/$file" "$CURRENT_DIR/$file"
+            ;;
+        "??")
+            echo "  - del: $file" | tee -a "$LOG_FILE"
+            sudo rm -rf "$CURRENT_DIR/$file"
             ;;
     esac
-    if [[ $action == "u" || $action == "c" ]] && [[ $file == "frontend"* ]]; then
+    if [[ $file == "frontend"* ]]; then
         BUILD_FRONTEND=true
     fi
-    if [[ $action == "u" || $action == "c" ]] && [[ $file == "backend/requirements.txt" ]]; then
+    if [[ $file == "backend/requirements.txt" ]]; then
         BUILD_BACKEND=true
     fi
-done < file_to_process.txt
-git reset
-rm file_to_process.txt || true
-rm file_list.txt || true
+done < <(git status --porcelain)
+
+echo "🔄 Изменение прав доступа:" | tee -a "$LOG_FILE"
+changes=$(git diff --summary HEAD)
+while IFS= read -r line; do
+    # Проверяем, изменились ли права доступа (mode change 100644 => 100755 file)
+    if [[ $line =~ \mode\ change\ 100([0-7]{3})\ =\>\ 100([0-7]{3})\ (.*) ]]; then
+        old_mode=${BASH_REMATCH[1]}
+        new_mode=${BASH_REMATCH[2]}
+        file=${BASH_REMATCH[3]}
+
+        # Преобразуем числовой режим в восьмеричный формат
+        sudo chmod "0$old_mode" "$file"
+        echo "  - $file ($old_mode -> $new_mode)"
+    fi
+done <<< "$changes"
 
 if [ "$BUILD_FRONTEND" = true ]; then
-    echo "✅ Изменения найдены. Фронтенд будет пересобран." | tee -a "$LOG_FILE"
+    echo "🔄 Обновление зависимостей фронтенда..." | tee -a "$LOG_FILE"
 else
-    echo "✅ Изменений нет. Билд фронтенда не требуется." | tee -a "$LOG_FILE"
+    echo "🔶 Изменений в фронтенде не найдено." | tee -a "$LOG_FILE"
+fi
+# Билд фронтенда, если были изменения
+if [ "$BUILD_FRONTEND" = true ]; then
+     cd "$CURRENT_DIR" || exit 1
+    make build_frontend >>"$LOG_FILE" 2>&1
+    cd "$CURRENT_DIR"
 fi
 
 
 if [ "$BUILD_BACKEND" = true ]; then
-    echo "✅ Изменения найдены. Бэкенд будет пересобран." | tee -a "$LOG_FILE"
+    echo "🔄 Обновление зависимостей бэкенда..." | tee -a "$LOG_FILE"
 else
-    echo "✅ Изменений нет. Билд бэкенда не требуется." | tee -a "$LOG_FILE"
+    echo "🔶 Изменений в зависимостях бэкенде не найдено." | tee -a "$LOG_FILE"
 fi
-
 # Билд бэкенда, если были изменения
 if [ "$BUILD_BACKEND" = true ]; then
-    echo "⚙ Запускаем билд бэкенда..." | tee -a "$LOG_FILE"
     cd "$CURRENT_DIR/backend" || exit 1
     pip install -r requirements.txt --break-system-packages>>"$LOG_FILE" 2>&1
     sudo docker rm app_server --force
     sudo docker image rm server --force >>"$LOG_FILE" 2>&1
 fi
 
-# Билд фронтенда, если были изменения
-if [ "$BUILD_FRONTEND" = true ]; then
-    echo "⚙ Запускаем билд фронтенда..." | tee -a "$LOG_FILE"
-     cd "$CURRENT_DIR" || exit 1
-    make build_frontend >>"$LOG_FILE" 2>&1
-    cd "$CURRENT_DIR"
-fi
 
 # Запуск сервера
 echo "🚀 Запускаем сервер..." | tee -a "$LOG_FILE"
