@@ -64,5 +64,6 @@ class ConditionNode(DAGNode):
       value = self.input_values.get('value')
     elif value == -2:
       value = self.params.get('custom_value')
+    print(f"🤖 ConditionNode {id(self)}: {value} {condition} {threshold} -> {result}")
     self.set_output(255 if result else 0)
     self.set_output(value, 'true' if result else 'false')

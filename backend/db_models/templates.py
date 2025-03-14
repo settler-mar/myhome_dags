@@ -3,6 +3,7 @@ from utils.db_utils import Base
 from datetime import datetime
 from db_models.common.json import Json
 
+
 class Template(Base):
   __tablename__ = "templates"
 

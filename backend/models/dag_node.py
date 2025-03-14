@@ -210,16 +210,20 @@ class DAGNode:
     # Передача данных на выход
     for output_group, value in self.updated_output.items():
       for input_type, output_node, children_group in self.outputs.get(output_group, []):
-        if input_type == 'in':
-          output_node.set_input(value, children_group)
-          key = (id(output_node), output_node)
-          if key not in need_run:
-            need_run[key] = set()
-          need_run[key].add(children_group)
-        elif input_type == 'param':
-          asyncio.create_task(output_node.set_param(children_group, value.get('new_value', [0, 0])[0]))
-        else:
-          print(f"💥 {self} {id(self)} Unknown input type {input_type} for {output_node}")
+        try:
+          if input_type == 'in':
+            output_node.set_input(value, children_group)
+            key = (id(output_node), output_node)
+            if key not in need_run:
+              need_run[key] = set()
+            need_run[key].add(children_group)
+          elif input_type == 'param':
+            val = value.get('new_value', [0, 0])[0]
+            asyncio.run(output_node.set_param(children_group, val))
+          else:
+            print(f"💥 {self} {id(self)} Unknown input type {input_type} for {output_node}")
+        except Exception as e:
+          print(f"💥 {self} {id(self)} Error setting output {output_node}: {e}")
 
     # Запуск следующих в отдельном потоке
     for _node, keys in need_run.items():

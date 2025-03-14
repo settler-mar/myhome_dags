@@ -9,7 +9,7 @@ class DAGTemplateBase(DAGNode, rootDag):
   Класс для шаблона DAG, который может включать несколько узлов (DAGNode).
   """
 
-  def __init__(self, tpl: dict = None, path: List[str] = None):
+  def __init__(self, tpl: dict = None, path: List[str] = None, params: Dict[str, Any] = None):
     self.path = [*(path or [])]
     self.name = tpl.get('name', 'Template')
     self.version = tpl.get('version', '0.0.1')
@@ -23,6 +23,8 @@ class DAGTemplateBase(DAGNode, rootDag):
 
     self.input_groups = template.get('input', [])
     self.params_groups = []
+
+    params = params or {}
     for param in template.get('param', []):
       if 'params' in param:
         for key, value in param['params'].items():
@@ -30,6 +32,8 @@ class DAGTemplateBase(DAGNode, rootDag):
             param['params'][key] = float(value)
         param.update(param['params'])
         del param['params']
+      if param['name'] in params:
+        param['default'] = params[param['name']]
       self.params_groups.append(param)
     self.output_groups = template.get('output', [])
 
@@ -39,7 +43,7 @@ class DAGTemplateBase(DAGNode, rootDag):
     def create_outputs(dag_ids: Dict[str, DAGNode]):
       print(f'🤓 {self}-{id(self)} init outs:')
       for k, input_group in [('input', self.input_groups),
-                             ('port', self.params_groups),
+                             ('params', self.params_groups),
                              ('output', self.output_groups)]:
         print(f'- {k}:')
         for input_dag in input_group:
@@ -48,6 +52,8 @@ class DAGTemplateBase(DAGNode, rootDag):
             if output[1] in dag_ids:
               input_dag['outputs'][index] = (output[0], dag_ids[output[1]], output[2])
               print('   +', id(dag_ids[output[1]]), input_dag['outputs'][index])
+              if k == 'params':
+                asyncio.create_task(dag_ids[output[1]].set_param(output[2], input_dag['default']))
 
       for output_dags in self.output_groups:
         output_dags['pin'].set_root_tpl(self)

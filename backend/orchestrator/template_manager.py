@@ -1,3 +1,4 @@
+import os.path
 from typing import List
 from models.singelton import SingletonClass
 from db_models.templates import Template
@@ -29,14 +30,25 @@ class TemplateManager(SingletonClass):
            .first())
     if not tpl:
       return
-    dag = DAGTemplateBase(tpl=tpl.__dict__, path=path)
+    dag = DAGTemplateBase(tpl=tpl.__dict__, path=path, params=params)
 
-    if params:
-      print('init template with params', params)
-      asyncio.create_task(dag.set_params(params, False))
-      # for key, value in params.items():
-      #   dag.set_param(key, value, False)
     return dag
+
+
+def save_to_file(template):
+  file_path = os.path.realpath(os.path.join(__file__, '..', '..', 'templates', 'export'))
+  if not os.path.exists(file_path):
+    os.makedirs(file_path)
+
+  file_name = f"{template['name']}_{template['version']}.json"
+  file_name = file_name.lower().replace(' ', '_').replace('-', '_')
+  file_name = ''.join([c for c in file_name if c.isalnum() or c in ['_', '.']])
+
+  # save template as JSON. Columns: name,template,version,description,sub_title
+  print(f"Saving template to {os.path.join(file_path, file_name)}")
+  with open(os.path.join(file_path, file_name), 'w') as f:
+    template = {k: v for k, v in template.items() if k in ['name', 'template', 'version', 'description', 'sub_title']}
+    f.write(str(template))
 
 
 @router.get("/templates", tags=["dags_templates"], dependencies=[Depends(RoleChecker('admin'))])
@@ -65,6 +77,7 @@ async def create_template(template: DAGTemplate, db: Session = Depends(db_sessio
   db.commit()
   template = db.query(Template).filter(Template.name == template.name).order_by(Template.id.desc()).first().__dict__
   data = {k: v for k, v in template.items() if k != '_sa_instance_state'}
+  save_to_file(template)
   await connection_manager.broadcast({"type": "template",
                                       "action": "add",
                                       "data": data})
@@ -100,6 +113,7 @@ async def save_template(data: DAGTemplateUpdate):
               .filter(Template.version == data.version)
               ).first().__dict__
   data = {k: v for k, v in template.items() if k != '_sa_instance_state'}
+  save_to_file(template)
   await connection_manager.broadcast({"type": "template",
                                       "action": "update",
                                       "data": data})
