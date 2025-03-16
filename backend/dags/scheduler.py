@@ -4,6 +4,7 @@ from time import time
 import concurrent.futures
 from crontab import CronTab
 from datetime import datetime
+from utils.logs import log_print
 
 
 class SchedulerNode(DAGNode):
@@ -78,7 +79,7 @@ class SchedulerNode(DAGNode):
   def calc_new_schedule(self):
     if self.prev_scheduler_str != self.scheduler_str:
       self.prev_scheduler_str = self.scheduler_str
-      print(datetime.now(), 'SchedulerNode new shadule', id(self), self.scheduler_str)
+      log_print(datetime.now(), 'SchedulerNode new shadule', id(self), self.scheduler_str)
       self.run_at = None
       try:
         self.cron = CronTab(self.scheduler_str)
@@ -88,7 +89,7 @@ class SchedulerNode(DAGNode):
         if ts_end_minutes > 1:
           sleep(ts_end_minutes - 1)
       except Exception as e:
-        print(datetime.now(), 'SchedulerNode new shadule error', id(self), e)
+        log_print(datetime.now(), 'SchedulerNode new shadule error', id(self), e)
 
   def run_step(self):
     self.calc_new_schedule()

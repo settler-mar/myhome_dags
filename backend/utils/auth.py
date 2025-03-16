@@ -10,6 +10,7 @@ from jwt import PyJWTError, InvalidTokenError
 
 from pydantic import BaseModel
 from utils.configs import config
+from utils.logs import log_print
 
 
 class Token(BaseModel):

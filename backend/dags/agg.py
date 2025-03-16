@@ -1,7 +1,7 @@
 from models.dag_node import DAGNode
 from time import sleep
 from time import time
-
+from utils.logs import log_print
 
 class AggNode(DAGNode):
   name = 'agg'
@@ -82,4 +82,4 @@ class AggNode(DAGNode):
         value = sum([v[0] for v in values]) / len(values)
       self.set_output(value)
     except Exception as e:
-      print(f"Error: {e}")
+      log_print(f"Error: {e}")

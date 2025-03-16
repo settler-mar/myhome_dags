@@ -1,7 +1,7 @@
 from models.dag_node import DAGNode
 from time import sleep
 from time import time
-
+from utils.logs import log_print
 
 class DelayNode(DAGNode):
   name = 'Delay'
@@ -37,7 +37,7 @@ class DelayNode(DAGNode):
     value = self.params.get('out_value', -1)
     if value == -1:
       value = self.input_values.get('start'),
-    # print(f"Node {self.name} finished at {time()}. Delay: {self.params['delay_seconds']} seconds.")
+    log_print(f"Node {self.name} finished at {time()}. Delay: {self.params['delay_seconds']} seconds.")
     self.set_output(value)
 
   def execute(self, input_keys: list):
@@ -48,6 +48,6 @@ class DelayNode(DAGNode):
 
     # Запуск узла
     if 'start' in input_keys:
-      # print(f"Node {self.name} started at {time()}. Delay: {self.params['delay_seconds']} seconds.")
+      log_print(f"Node {self.name} started at {time()}. Delay: {self.params['delay_seconds']} seconds.")
       self.thread.submit(lambda x: sleep(x), self.params['delay_seconds'])  # Синхронная задержка
       self.thread.submit(lambda x: self.send_update(), 0)  # Асинхронное обновление

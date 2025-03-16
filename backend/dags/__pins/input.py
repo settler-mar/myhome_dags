@@ -1,7 +1,7 @@
 from dags.__pins.__base import BasePin
 from time import sleep
 from time import time
-
+from utils.logs import log_print
 
 class InputPinClass(BasePin):
   name = 'Input'
@@ -29,7 +29,7 @@ class InputPinClass(BasePin):
       'key': key,
       'new_value': new_value,
     }
-    print('🤖 input pin income_value', data)
+    log_print('🤖 input pin income_value', data)
     if prev_value is not None:
       data['prev_value'] = prev_value
     self.set_output(data)

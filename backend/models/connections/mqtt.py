@@ -1,6 +1,7 @@
 from fastapi import Depends, APIRouter, Query
 from utils.auth import RoleChecker
 import paho.mqtt.client as mqtt
+from utils.logs import log_print
 
 
 class MqttClass:
@@ -13,7 +14,7 @@ class MqttClass:
   def __init__(self, **kwargs):
     _id = kwargs.get('id', None)
     self.connectors_list[_id] = self
-    print('MqttClass initialized', id(self), kwargs)
+    log_print('MqttClass initialized', id(self), kwargs)
 
     self.mqttc = mqtt.Client(f'server_client_{id(self)}')
     self.mqttc.on_disconnect = self.on_disconnect
@@ -49,14 +50,14 @@ class MqttClass:
     self._status = "disconnected"
 
   def on_message(self, mqttc, obj, msg):
-    # print('msg:', msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
-    # print('msg:', dir(msg))
+    # log_print('msg:', msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+    # log_print('msg:', dir(msg))
     attr_list = ['dup', 'info', 'mid', 'payload', 'properties', 'qos', 'retain', 'state', 'timestamp', 'topic']
-    # print({attr: getattr(msg, attr) for attr in attr_list if hasattr(msg, attr)})
+    # log_print({attr: getattr(msg, attr) for attr in attr_list if hasattr(msg, attr)})
 
 
 def add_routes(app):
-  print('Adding MQTT routes')
+  log_print('Adding MQTT routes')
 
   @app.get("/api/live/connections/{connector_id}/mqtt",
            tags=["live/connections"],

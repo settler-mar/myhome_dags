@@ -15,6 +15,7 @@ from utils.db_utils import Base
 from inspect import getmembers, isdatadescriptor
 from utils.db_utils import Base, db_session
 from db_models.connections import Connections as DbConnections
+from utils.logs import log_print
 
 
 class Connectors(SingletonClass):
@@ -47,32 +48,32 @@ class Connectors(SingletonClass):
         try:
           self.connectors[item.id] = self.connectors_class[item.type](**module_params)
         except Exception as e:
-          print(f"Error while creating connector {item.type}")
+          log_print(f"Error while creating connector {item.type}")
 
   def start_connectors(self):
     for connector in self.connectors.values():
       try:
         hasattr(connector, 'start') and connector.start()
       except Exception as e:
-        print(f"Error while starting connector {connector._id}")
+        log_print(f"Error while starting connector {connector._id}")
 
 
 def init_connectors(app):
   connect = Connectors()
 
-  print(f"Connectors class initialized:")
+  log_print(f"Connectors class initialized:")
   connectors_dir = path.join(path.dirname(__file__))
   os.makedirs(connectors_dir, exist_ok=True)
   for file in os.listdir(connectors_dir):
     if file.startswith('_') or file.startswith('.'):
       continue
     if file.endswith('.py'):
-      print(f"Loading connector from file: {file[:-3]}")
+      log_print(f"Loading connector from file: {file[:-3]}")
       name = file[:-3]
       class_name = name.capitalize() + 'Class'
       module = __import__(f"{__name__}.{name}", fromlist=[class_name, 'add_routes'])
       if not hasattr(module, class_name):
-        print(f"Class {class_name} not found in {name}")
+        log_print(f"Class {class_name} not found in {name}")
         continue
 
       connect.add(name, getattr(module, class_name))
@@ -91,7 +92,7 @@ def init_connectors(app):
            response_model=dict,
            dependencies=[Depends(RoleChecker('admin'))])
   def get_connections_status():
-    print(connect.connectors)
+    log_print(connect.connectors)
     return {name: connector.get_status() for name, connector in connect.connectors.items() if
             hasattr(connector, 'get_status')}
 
