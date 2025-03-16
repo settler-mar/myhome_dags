@@ -1,6 +1,6 @@
 <template>
   <div class="vue-flow__node-default">
-    <!--    {{ data.dag.id }}-->
+    <!--        {{ data.dag.id }}-->
     <!--    {{ data.dag }}-->
     <!--    {{ config }}-->
     <!--    {{ config['params']}}-->
@@ -8,6 +8,14 @@
     <span class="dag_title" :version="version">{{ data.dag.title }}</span>
     <span class="dag_sub_title" v-if="data.dag.sub_title">{{ sub_title }}</span>
     <span class="dag_sub_title" v-if="data.dag.group">{{ data.dag.group }}</span>
+    <v-btn
+      class="dag_ctrl"
+      size="x-small"
+      density="compact"
+      v-if="data.dag.id.split(':')[0] === 'tpl'"
+      icon="mdi-eye"
+      @click.stop="view_tpl(data.dag.id)"
+    />
 
     <div class="vue-flow__handle-wrap" :item_count="inputs.length">
       <Handle
@@ -56,6 +64,11 @@ export default {
   },
   components: {
     Handle
+  },
+  methods: {
+    view_tpl(id) {
+
+    }
   },
   computed: {
     ...mapStores(dagsStore),
@@ -213,5 +226,16 @@ export default {
       }
     }
   }
+}
+
+.dag_ctrl {
+  position: absolute;
+  right: -7px;
+  top: -7px;
+  z-index: 1;
+  padding: 0;
+  height: 16px !important;
+  width: 16px !important;
+  background: #d5d5d5;
 }
 </style>

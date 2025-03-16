@@ -73,6 +73,7 @@ class SchedulerNode(DAGNode):
     if value == -1:
       value = self.params.get('custom_value')
     self.updated_output = {}
+    log_print('SchedulerNode send', id(self), value)
     self.set_output(value)
     self._run_next()
 

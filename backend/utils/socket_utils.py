@@ -28,7 +28,7 @@ class ConnectionManager:
       self.active_connections.remove(websocket)
 
   async def broadcast(self, data: dict):
-    log_print('broadcast', data)
+    log_print(data)
     for connection in self.active_connections:
       try:
         await asyncio.create_task(connection.send_text(json.dumps(data, default=serialize_datetime)))
