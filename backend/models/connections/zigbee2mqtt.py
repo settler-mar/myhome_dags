@@ -11,6 +11,7 @@ from models.connections import Connectors
 from models.devices import Devices
 import threading
 from datetime import datetime
+from utils.logs import log_print
 
 
 def collect_port(port, device_id, mode) -> DbPorts:
@@ -51,7 +52,7 @@ class Zigbee2mqttClass:
     _id = kwargs.get('id', None)
     self._id = _id
     self.connectors_list[_id] = self
-    print('zigbee2MqttClass initialized', id(self), kwargs)
+    log_print('zigbee2MqttClass initialized', id(self), kwargs)
     if 'params' in kwargs:
       self.base_topic = kwargs['params']['base_topic']
 
@@ -66,7 +67,7 @@ class Zigbee2mqttClass:
     }
 
   def start(self):
-    print('zigbee2MqttClass start', id(self))
+    log_print('zigbee2MqttClass start', id(self))
     self.mqttc.connect(self.connect_params['host'], self.connect_params['port'], 60)
     self.mqttc.subscribe(f"{self.base_topic}/#")
     self.mqttc.loop_start()
@@ -121,7 +122,7 @@ class Zigbee2mqttClass:
     try:
       message = json.loads(msg.payload.decode())
     except json.JSONDecodeError:
-      print('msg:', topic, msg.payload.decode())
+      log_print('msg:', topic, msg.payload.decode())
       return
     parts = topic.split('/')
     if parts[0] in self.massage_maps:
@@ -193,7 +194,7 @@ class Zigbee2mqttClass:
 
 
 def add_routes(app):
-  print('Adding ZIGBEE 2 MQTT routes')
+  log_print('Adding ZIGBEE 2 MQTT routes')
 
   def get_connection(connector_id: int):
     connections = Connectors()

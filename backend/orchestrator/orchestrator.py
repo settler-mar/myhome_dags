@@ -11,6 +11,7 @@ import json
 import os
 import asyncio
 import threading
+from utils.logs import log_print
 
 router = APIRouter()
 
@@ -34,7 +35,7 @@ class Orchestrator(SingletonClass, rootDag):
       threading.Timer(1, self.load_dags).start()
       return
 
-    print('Orchestrator loaded from file')
+    log_print('Orchestrator loaded from file')
     if os.path.exists('../store/orchestrator.json'):
       with open('../store/orchestrator.json', 'r') as f:
         asyncio.create_task(self.create_from_json(json.loads(f.read())))

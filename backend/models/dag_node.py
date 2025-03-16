@@ -3,6 +3,7 @@ import multiprocessing
 import concurrent.futures
 
 from utils.socket_utils import connection_manager
+from utils.logs import log_print
 import os
 from datetime import datetime
 import asyncio
@@ -107,7 +108,7 @@ class DAGNode:
     """Устанавливает параметр узла"""
     try:
       if name not in self.params:
-        print(f"💥 {self} {id(self)} Error: Param {name} not found. Value {value}")
+        log_print(f"💥 {self} {id(self)} Error: Param {name} not found. Value {value}")
         return
       for param in self.params_groups:
         if param['name'] != name:
@@ -131,10 +132,10 @@ class DAGNode:
         await connection_manager.broadcast({"type": "dag",
                                             "action": "update_params",
                                             "data": {"id": self.id, "params": {name: value}}})
-      print('🤛 set dag param', id(self), self.__class__, name, value)
+      log_print('🤛 set dag param', id(self), self.__class__, name, value)
 
     except Exception as e:
-      print(f"Error setting param {name}={value}: {e}")
+      log_print(f"Error setting param {name}={value}: {e}")
 
   async def set_params(self, params: dict, send_update: bool = True):
     """Устанавливает параметры узла"""
@@ -151,14 +152,14 @@ class DAGNode:
   def set_input(self, value: Any, input_group: Optional[str] = 'default'):
     """Устанавливает входной узел (перезаписывает предыдущие)"""
     self.input_values[input_group] = value
-    print('🤜 set dag input', id(self), self.__class__, input_group, value)
+    log_print('🤜 set dag input', id(self), self.__class__, input_group, value)
 
   def set_output(self, value: Any, output_group: Optional[str] = 'default'):
     """Устанавливает выходной узел (перезаписывает предыдущие)"""
     if isinstance(value, tuple) and len(value) == 1 and isinstance(value[0], dict) and 'new_value' in value[0]:
       value = value[0]
     elif not isinstance(value, dict) or 'new_value' not in value:
-      print(f"💥 add wrapper for {value}")
+      log_print(f"💥 add wrapper for {value}")
       value = {
         'key': [],
         'new_value': (value, datetime.now().timestamp()),
@@ -205,7 +206,7 @@ class DAGNode:
     # self.thread = None
 
   def _run_next(self):
-    print('🏃 run next', id(self), self.__class__)
+    log_print('🏃 run next', id(self), self.__class__)
     need_run = {}
     # Передача данных на выход
     for output_group, value in self.updated_output.items():
@@ -221,17 +222,17 @@ class DAGNode:
             val = value.get('new_value', [0, 0])[0]
             asyncio.run(output_node.set_param(children_group, val))
           else:
-            print(f"💥 {self} {id(self)} Unknown input type {input_type} for {output_node}")
+            log_print(f"💥 {self} {id(self)} Unknown input type {input_type} for {output_node}")
         except Exception as e:
-          print(f"💥 {self} {id(self)} Error setting output {output_node}: {e}")
+          log_print(f"💥 {self} {id(self)} Error setting output {output_node}: {e}")
 
     # Запуск следующих в отдельном потоке
     for _node, keys in need_run.items():
       try:
         _node[1].process(keys)
       except Exception as e:
-        print(f"💥 {self} {id(self)} Error running {_node}: {e}")
-    print('🏁 run next', id(self), self)
+        log_print(f"💥 {self} {id(self)} Error running {_node}: {e}")
+    log_print('🏁 run next', id(self), self)
 
   def stop_thread(self):
     try:
@@ -248,7 +249,7 @@ class DAGNode:
     #
     # self.thread = multiprocessing.Process(target=self._execute)
     # self.thread.start()
-    print('🤸 process', id(self), self.__class__, input_keys)
+    log_print('🤸 process', id(self), self.__class__, input_keys)
 
     self.stop_thread()
 

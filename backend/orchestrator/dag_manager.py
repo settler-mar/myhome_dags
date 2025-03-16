@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from models.root_dag import rootDag
 from utils.auth import RoleChecker
 import asyncio
+from utils.logs import log_print
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ class DAGManager(SingletonClass):
       if file.startswith('__') or file.startswith('.'):
         continue
       if file.endswith('.py'):
-        print(f"Loading DAG from file: {file[:-3]}")
+        log_print(f"Loading DAG from file: {file[:-3]}")
         __import__(f"{self.dags_dir}.{file[:-3]}", fromlist=[''])
 
     return [dag for dag in DAGNode.__subclasses__() if dag.public]
@@ -97,7 +98,7 @@ class DAGManager(SingletonClass):
 
     dag = self.get_dag_by_name(name, params, rootDag.path)
     if not dag:
-      print(f"DAG {name} not found")
+      log_print(f"DAG {name} not found")
       return
 
     if position:
