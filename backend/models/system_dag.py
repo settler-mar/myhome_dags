@@ -13,11 +13,18 @@ class SystemDag(DAGNode):
 class InputDag(DAGNode):
   name = 'Input'
   description = 'Входной узел'
+  points = {
+    'outputs': [{'name': 'default', 'description': 'data'}],
+  }
 
 
 class ParamDag(DAGNode):
   name = 'Param'
   description = 'Параметр'
+
+  points = {
+    'outputs': [{'name': 'default', 'description': 'data'}],
+  }
 
 
 class OutputDag(DAGNode):
@@ -25,6 +32,10 @@ class OutputDag(DAGNode):
   description = 'Выходной узел'
 
   root_tpl = None
+
+  points = {
+    'inputs': [{'name': 'default', 'description': 'data'}],
+  }
 
   def set_root_tpl(self, root_tpl: "DAGTemplateBase"):
     self.root_tpl = root_tpl

@@ -9,6 +9,7 @@ from typing import Union
 class rootDag:
   path: list = None
   dags: dict = None
+  root_name: str = None
 
   async def add_dag(self, dag: DAGNode) -> int:
     """Добавляет DAG для выполнения"""
@@ -59,7 +60,7 @@ class rootDag:
                                          root_dag=self)
       if dag is None:
         continue
-      dag.setPage(dag_params.get('page', 'main'))
+      dag.setPage(dag_params.get('page', self.root_name or 'main'))
       dag.is_simple = dag_params.get('is_simple', False)
       dag_id_map[dag_params['id']] = dag
 
@@ -128,6 +129,10 @@ class rootDag:
   def remove_dag_connections(self, dag_out: int, dag_in: int, group_out: str = 'default', group_in: str = 'default',
                              to_type: str = 'in'):
     """Удаляет связь между двумя DAG-ами"""
+    if isinstance(dag_out, str) and dag_out.isnumeric():
+      dag_out = int(dag_out)
+    if isinstance(dag_in, str) and dag_in.isnumeric():
+      dag_in = int(dag_in)
     if dag_out in self.dags and dag_in in self.dags:
       dag = self.dags[dag_out]
       dag.remove_output(self.dags[dag_in], group_out, group_in, to_type)

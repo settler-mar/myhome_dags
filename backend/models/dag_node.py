@@ -102,7 +102,9 @@ class DAGNode:
       asyncio.create_task(self.send_update())
 
   async def send_update(self):
-    return await connection_manager.broadcast({"type": "dag", "action": "update", "data": self.get_json()})
+    data = {"type": "dag", "action": "update", "data": self.get_json()}
+
+    return await connection_manager.broadcast(data)
 
   async def set_param(self, name: str, value: any, send_update: bool = True):
     """Устанавливает параметр узла"""
@@ -172,18 +174,20 @@ class DAGNode:
 
   def get_json(self) -> dict:
     """Получение метаинформации об узле в формате JSON."""
-    return {'id': self.id,
-            'name': self.name,
-            'code': self.code,
-            'outputs': {name: [(el[0], el[1].id, el[2]) for el in item] for name, item in self.outputs.items()},
-            'params': self.params,
-            'position': self.position,
-            'title': self.get_title(),
-            'version': self.version,
-            'sub_title': self.sub_title,
-            'page': self.page,
-            'is_simple': self.is_simple,
-            }
+    return {key: value for key, value in {'id': self.id,
+                                          'name': self.name,
+                                          'code': self.code,
+                                          'outputs': {name: [(el[0], el[1].id, el[2]) for el in item]
+                                                      for name, item in self.outputs.items()},
+                                          'params': self.params,
+                                          'position': self.position,
+                                          'title': self.get_title(),
+                                          'version': self.version,
+                                          'sub_title': self.sub_title,
+                                          'page': self.page,
+                                          'is_simple': self.is_simple,
+                                          'pins': self.points if hasattr(self, 'points') else None,
+                                          }.items() if value is not None}
 
   def get_title(self) -> str:
     """Получение заголовка узла."""

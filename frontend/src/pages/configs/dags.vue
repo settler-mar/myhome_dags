@@ -223,12 +223,21 @@ export default {
           }
         }
         return nodes
-      }/**/
-      /*if (this.dagsStore.page.substr(0, 4) === 'pin:'){
-        let nodes = []
-        let tpl_key = this.dagsStore.page.substr(4)
-        this.dagsStore
-      }*/
+      }
+      if (this.dagsStore.page.substr(0, 5) === 'vtpl:') {
+        let tpl_key = this.dagsStore.page.substr(1)
+        if (!this.dagsStore.active_tpls[tpl_key]) {
+          return []
+        }
+        return this.dagsStore.active_tpls[tpl_key].map(dag => {
+          return {
+            id: String(dag.id),
+            type: 'special',
+            position: {x: dag.position[0], y: dag.position[1]},
+            data: {dag},
+          }
+        })
+      }
       return this.dagsStore.dags.filter(dag => (!dag.page && this.dagsStore.page === 'main') || dag.page === this.dagsStore.page).map(dag => {
         return {
           id: dag.id,
@@ -262,10 +271,12 @@ export default {
         }
         return edges
       }
-      for (let dag of this.dagsStore.dags) {
-        if ((dag.page && dag.page !== this.dagsStore.page) || (!dag.page && this.dagsStore.page !== 'main')) {
-          continue
-        }
+      let dags = this.dagsStore.page.substr(0, 5) === 'vtpl:' ?
+        this.dagsStore.active_tpls[this.dagsStore.page.substr(1)] || [] :
+        this.dagsStore.dags.filter(dag =>
+          (!dag.page && this.dagsStore.page === 'main') || dag.page === this.dagsStore.page)
+
+      for (let dag of dags) {
         for (let [key, value] of Object.entries(dag.outputs)) {
           for (let [index, edge] of value.entries()) {
             edges.push({
@@ -296,14 +307,28 @@ export default {
           on_save: this.dagsStore.templates_edit[key].on_save,
         })
       }
+      for (let key in this.dagsStore.active_tpls) {
+        pages.push({
+          title: key,
+          id: 'v' + key,
+          close: true,
+          // save: this.dagsStore.templates_edit[key].need_save,
+          // on_save: this.dagsStore.templates_edit[key].on_save,
+        })
+      }
       return pages
     },
     selectTPL() {
       this.las_tab_change = new Date()
-      if (this.dagsStore.page.substr(0, 4) !== 'tpl:') {
-        return {}
+      let t_key = this.dagsStore.page.split(':')[1]
+      if (t_key === 'tpl' && this.dagsStore.templates_edit[this.dagsStore.page.substr(4)]) {
+        return this.dagsStore.templates_edit[this.dagsStore.page.substr(4)] || {}
       }
-      return this.dagsStore.templates_edit[this.dagsStore.page.substr(4)] || {}
+      if (t_key === 'vtpl' && this.dagsStore.active_tpls[this.dagsStore.page.substr(1)]) {
+        console.log('select tpl', this.dagsStore.page.substr(1))
+        return this.dagsStore.active_tpls[this.dagsStore.page.substr(1)] || {}
+      }
+      return {}
     },
     tab() {
       return this.dagsStore.page
@@ -505,6 +530,7 @@ export default {
           }
         } else if (change.type === 'remove') {
           this.dagsStore.removeDag(change.id)
+        } else if (change.type === 'dimensions') {
         } else {
           console.log(change)
         }

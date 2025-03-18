@@ -30,12 +30,14 @@ export const useDagsStore = defineStore("dags", {
     const templates = ref([]); // Список шаблонов дагов
     const initialized = ref(false); // Флаг инициализации
     const pins_db = ref([]); // список возможных пинов
+    const active_tpls = ref({}) // список активных шаблонов
     return {
       dags,
       dags_db,
       pins_db,
       initialized,
       templates,
+      active_tpls,
       templates_edit: ref({}),
       page: 'main',
       page_collect: ref(['main']),
@@ -75,6 +77,18 @@ export const useDagsStore = defineStore("dags", {
     _dagUpdate(newDag) {
       newDag.id = newDag.id.toString();
       let id = newDag.id;
+      if (newDag.page.substr(0, 5) === 'vtpl:') {
+        console.log('vtpl:', newDag)
+        let tpl_name = newDag.page.substr(1)
+        for (let i in this.active_tpls[tpl_name] || []) {
+          if (String(this.active_tpls[tpl_name][i].id) === id) {
+            this.active_tpls[tpl_name][i] = newDag
+            return
+          }
+        }
+        this.active_tpls[tpl_name].push(newDag)
+        return;
+      }
       for (let i = 0; i < this.dags.length; i++) {
         if (this.dags[i].id === id) {
           this.dags[i] = newDag;
@@ -187,7 +201,8 @@ export const useDagsStore = defineStore("dags", {
       }
       const messageStore = useMessageStore();
       try {
-        await secureFetch(`/api/dags/${dagId}`, {method: "DELETE"});
+        let url = this.page.substr(0, 5) === 'vtpl:' ? `/api/templates_dag/${this.page.substr(1)}/` : '/api/dags/'
+        await secureFetch(`${url}${dagId}`, {method: "DELETE"});
         this._dagDelete(dagId);
       } catch (error) {
         console.error("Ошибка при удалении дага:", error);
@@ -262,6 +277,7 @@ export const useDagsStore = defineStore("dags", {
           to_id,
           to_type,
           to_port,
+          page: this.page
         };
         await secureFetch(`/api/dags/connections`, {
           method: "POST",
@@ -274,7 +290,6 @@ export const useDagsStore = defineStore("dags", {
         messageStore.addMessage({type: "error", text: "Ошибка при добавлении связи."});
       }
     },
-    //
     async deleteConnection(connectionData) {
       console.log('deleteConnection', connectionData)
       if (this.page.substr(0, 4) === 'tpl:') {
@@ -295,6 +310,8 @@ export const useDagsStore = defineStore("dags", {
           }
         }
         return
+      } else if (this.page.substr(0, 5) === 'vtpl:') {
+        console.log('deleteConnection', 'vtpl')
       } else {
         if (!this.get_dag(connectionData.source) || !this.get_dag(connectionData.target)) {
           return
@@ -311,10 +328,14 @@ export const useDagsStore = defineStore("dags", {
           connectionData.sourceHandle.split('_')[1],
           targetHandle[0],
           connectionData.target,
-          targetHandle[1]].join('/');
+          targetHandle[1]
+        ]
+        if (this.page.substr(0, 5) === 'vtpl:') {
+          url[0] = '/api/templates/connections'
+          url.push(this.page.substr(5))
+        }
 
-        await secureFetch(url,
-          {method: "DELETE"});
+        await secureFetch(url.join('/'), {method: "DELETE"});
       } catch (error) {
         console.error("Ошибка при удалении связи:", error);
         messageStore.addMessage({type: "error", text: "Ошибка при удалении связи."});
@@ -378,8 +399,9 @@ export const useDagsStore = defineStore("dags", {
         }
         return
       }
+      let url = this.page.substr(0, 5) === 'vtpl:' ? `/api/templates/${this.page.substr(1)}/` : '/api/dags/'
       try {
-        await secureFetch(`/api/dags/${id}/params`, {
+        await secureFetch(`${url}${id}/params`, {
           method: "POST",
           data: {params}
         });
@@ -474,6 +496,15 @@ export const useDagsStore = defineStore("dags", {
         }
       });
 
+    },
+    async edit_active_template(id) {
+      let url = `/api/templates/get/${id}`
+      let root = this
+      this.page = 'v' + id
+      const response = await secureFetch(url)
+      const messageStore = useMessageStore();
+      messageStore.addMessage({type: "success", text: "Template loaded to view mode."});
+      root.active_tpls[id] = await response.json()
     }
   },
   getters: {
