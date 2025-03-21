@@ -35,9 +35,20 @@ print("Starting FastAPI server...")
 create_auth_route(app)
 config.create_routes(app)
 init_db(app)
-connectors = init_connectors(app)
-devices_init(app)
-connectors.start_connectors()
+
+
+def init_dags(add_routes=True):
+  connectors = init_connectors(app, add_routes)
+  devices_init(app, add_routes)
+  connectors.start_connectors()
+  Orchestrator()
+  if add_routes:
+    app.include_router(orchestrator_router, prefix="/api")
+    app.include_router(dag_router, prefix="/api")
+    app.include_router(template_router, prefix="/api")
+
+
+init_dags()
 
 
 # nest_asyncio.apply()
@@ -51,10 +62,16 @@ async def alive():
   return {"status": "alive"}
 
 
-Orchestrator()
-app.include_router(orchestrator_router, prefix="/api")
-app.include_router(dag_router, prefix="/api")
-app.include_router(template_router, prefix="/api")
+@app.get("/api/restart")
+async def restart():
+  """
+  Restart the server
+  """
+  print('start restart')
+  from models.singelton import SingletonClass
+  SingletonClass.restart_all()
+  init_dags(False)
+  return {"status": "restarting", "message": "Server will restart"}
 
 
 # Websocket endpoint
@@ -105,9 +122,6 @@ def join_dist():
 
 
 join_dist()
-
-# Initialize the app
-# init()
 
 print("\nRunning FastAPI app...")
 print(" - FastAPI is available at " + f"http://localhost:{PORT}/api")

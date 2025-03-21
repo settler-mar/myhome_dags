@@ -342,7 +342,9 @@ export const useDagsStore = defineStore("dags", {
       }
     },
     async restart_dags() {
-      alert('restart_dags in work')
+      console.log('restart_dags')
+      let re = await secureFetch('/api/restart', {method: "GET"});
+
     },
     async add_template(template) {
       const messageStore = useMessageStore();

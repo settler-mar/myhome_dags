@@ -18,3 +18,9 @@ class SingletonClass(object):
       cls.instance[cls.__name__] = super(SingletonClass, cls).__new__(cls)
       log_print(f'Creating new instance {cls.__name__} with id {id(cls.instance[cls.__name__])}')
     return cls.instance[cls.__name__]
+
+  @classmethod
+  def restart_all(cls):
+    for key in list(cls.instance):
+      del cls.instance[key]
+    cls.instance = {}

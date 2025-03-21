@@ -241,36 +241,37 @@ class Devices(SingletonClass):
         print(f"Port {port.id} not found in devices[{port.device_id}]")
 
 
-def devices_init(app):
+def devices_init(app, add_routes: bool = True):
   devices = Devices()
 
-  @app.get("/api/live/devices",
-           tags=["live/devices"],
-           response_model=dict,
-           dependencies=[Depends(RoleChecker('admin'))])
-  def get_connections_list():
-    return {name: item.get_info() for name, item in devices.items()}
+  if add_routes:
+    @app.get("/api/live/devices",
+             tags=["live/devices"],
+             response_model=dict,
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_connections_list():
+      return {name: item.get_info() for name, item in devices.items()}
 
-  @app.get("/api/live/connections/{device_id}/{port_id}/set/{value}",
-           tags=["live/connections"],
-           dependencies=[Depends(RoleChecker('admin'))])
-  def set_port_value(device_id: Union[str, int], port_id: Union[str, int], value: str):
-    device_id = int(devices.devices_names.get(device_id, device_id))
+    @app.get("/api/live/connections/{device_id}/{port_id}/set/{value}",
+             tags=["live/connections"],
+             dependencies=[Depends(RoleChecker('admin'))])
+    def set_port_value(device_id: Union[str, int], port_id: Union[str, int], value: str):
+      device_id = int(devices.devices_names.get(device_id, device_id))
 
-    if device_id in devices.devices:
-      devices.devices[device_id].set_value(port_id, value)
+      if device_id in devices.devices:
+        devices.devices[device_id].set_value(port_id, value)
 
-      return {"status": 'ok'}
-    return {"status": 'error', "message": 'Device or port not found'}
+        return {"status": 'ok'}
+      return {"status": 'error', "message": 'Device or port not found'}
 
-  @app.get("/api/live/connections/{device_id}/{port_id}/get",
-           tags=["live/connections"],
-           dependencies=[Depends(RoleChecker('admin'))])
-  def get_port_value(device_id: Union[str, int], port_id: Union[str, int]):
-    device_id = int(devices.devices_names.get(device_id, device_id))
-    if device_id in devices.devices:
-      return {"status": 'ok', "value": devices.devices[device_id].get_value(port_id)}
-    return {"status": 'error', "message": 'Device or port not found'}
+    @app.get("/api/live/connections/{device_id}/{port_id}/get",
+             tags=["live/connections"],
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_port_value(device_id: Union[str, int], port_id: Union[str, int]):
+      device_id = int(devices.devices_names.get(device_id, device_id))
+      if device_id in devices.devices:
+        return {"status": 'ok', "value": devices.devices[device_id].get_value(port_id)}
+      return {"status": 'error', "message": 'Device or port not found'}
 
 
 class PinsManager(SingletonClass):
