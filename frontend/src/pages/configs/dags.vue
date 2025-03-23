@@ -25,6 +25,10 @@
       @nodes-change="onChangeNode"
       @edges-change="onChangeEdge"
       @connect="onConnect"
+
+      :nodes-draggable="!view_mode"
+      :nodes-connectable="!view_mode"
+      :delete-key-code="!view_mode?'Delete':null"
     >
       <DropzoneBackground
         :style="{
@@ -88,25 +92,33 @@
     </VueFlow>
 
     <aside>
+      <v-checkbox dense hide-details label="Show data online" class="inline-checkbox" v-model="view_mode"/>
       <template v-if="sel_el && !Object.is(sel_el)">
-        <input type="radio" id="item0" name="select_tab">
+        <input type="radio" id="item0" name="select_tab" v-if="!view_mode">
+        <input type="radio" checked v-else disabled>
         <label for="item0">Property</label>
         <EditDagParam :params="edited_params"/>
       </template>
 
-      <input type="radio" checked id="item4" name="select_tab">
-      <label for="item4">Pins</label>
-      <PinsDag/>
+      <template v-if="!view_mode">
+        <input type="radio" id="item4" name="select_tab">
+        <label for="item4">Pins</label>
+        <PinsDag/>
+      </template>
 
-      <input type="radio" checked id="item1" name="select_tab">
-      <label for="item1">Dags</label>
-      <SidebarDag/>
+      <template v-if="!view_mode">
+        <input type="radio" checked id="item1" name="select_tab">
+        <label for="item1">Dags</label>
+        <SidebarDag/>
+      </template>
 
-      <input type="radio" id="item2" name="select_tab">
-      <label for="item2">Templates</label>
-      <TemplateDag/>
+      <template v-if="!view_mode">
+        <input type="radio" id="item2" name="select_tab">
+        <label for="item2">Templates</label>
+        <TemplateDag/>
+      </template>
 
-      <template v-if="dagsStore.page.substr(0,4)==='tpl:'">
+      <template v-if="dagsStore.page.substr(0,4)==='tpl:' && !view_mode">
         <input type="radio" id="item3" name="select_tab">
         <label for="item3">Template property</label>
         <TemplateProperty/>
@@ -151,6 +163,7 @@ let flow = null
 export default {
   data() {
     return {
+      view_mode: false,
       dark: true,
       isDragOver: ref(isDragOver),
       lastAction: null,
@@ -211,6 +224,7 @@ export default {
               type: 'special',
               position: {x: dag.position[0], y: dag.position[1]},
               data: {
+                'view_mode': this.view_mode,
                 'dag': {
                   'title': dag.name,
                   ...dag,
@@ -234,7 +248,10 @@ export default {
             id: String(dag.id),
             type: 'special',
             position: {x: dag.position[0], y: dag.position[1]},
-            data: {dag},
+            data: {
+              dag,
+              'view_mode': this.view_mode,
+            },
           }
         })
       }
@@ -243,7 +260,10 @@ export default {
           id: dag.id,
           type: 'special',
           position: {x: dag.position[0], y: dag.position[1]},
-          data: {dag},
+          data: {
+            dag,
+            'view_mode': this.view_mode,
+          },
         }
       })
     },
@@ -559,6 +579,9 @@ export default {
     }
   },
   watch: {
+    view_mode(val) {
+      // this.$refs.flow.setInteractive(true)
+    },
     tab(val) {
       this.dagsStore.select_node = null
       // Fit View
@@ -885,6 +908,11 @@ aside button {
   &:hover {
     background: #e0e0e0;
   }
+}
+
+.inline-checkbox {
+  padding: 0;
+  margin: 0;
 }
 
 </style>

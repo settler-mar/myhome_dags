@@ -3,6 +3,7 @@ from time import sleep
 from time import time
 from utils.logs import log_print
 
+
 class AggNode(DAGNode):
   name = 'agg'
   version = '0.0'

@@ -5,6 +5,7 @@ import concurrent.futures
 from crontab import CronTab
 from datetime import datetime
 from utils.logs import log_print
+from utils.socket_utils import connection_manager
 
 
 class SchedulerNode(DAGNode):
@@ -73,14 +74,27 @@ class SchedulerNode(DAGNode):
     if value == -1:
       value = self.params.get('custom_value')
     self.updated_output = {}
-    log_print('SchedulerNode send', id(self), value)
+    # log_print('SchedulerNode send', id(self), value)
+    connection_manager.broadcast_log(
+      level='debug',
+      message=f"Node {self.name} send",
+      permission='root',
+      dag_id=id(self),
+      value=value
+    )
     self.set_output(value)
     self._run_next()
 
   def calc_new_schedule(self):
     if self.prev_scheduler_str != self.scheduler_str:
       self.prev_scheduler_str = self.scheduler_str
-      log_print(datetime.now(), 'SchedulerNode new shadule', id(self), self.scheduler_str)
+      # log_print(datetime.now(), 'SchedulerNode new shadule', id(self), self.scheduler_str)
+      connection_manager.broadcast_log(
+        level='debug',
+        message=f"Node {self.name} new shadule: {self.scheduler_str}",
+        permission='root',
+        dag_id=id(self),
+      )
       self.run_at = None
       try:
         self.cron = CronTab(self.scheduler_str)
@@ -90,7 +104,13 @@ class SchedulerNode(DAGNode):
         if ts_end_minutes > 1:
           sleep(ts_end_minutes - 1)
       except Exception as e:
-        log_print(datetime.now(), 'SchedulerNode new shadule error', id(self), e)
+        # log_print(datetime.now(), 'SchedulerNode new shadule error', id(self), e)
+        connection_manager.broadcast_log(
+          level='error',
+          message=f"Node {self.name} new shadule error: {e}",
+          permission='root',
+          dag_id=id(self),
+        )
 
   def run_step(self):
     self.calc_new_schedule()

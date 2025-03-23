@@ -1,6 +1,7 @@
 from models.dag_node import DAGNode
 from time import sleep
 from time import time
+from utils.socket_utils import connection_manager
 
 
 class ListNode(DAGNode):
@@ -51,6 +52,12 @@ class ListNode(DAGNode):
         self.params['index'] = 0
       else:
         self.params['index'] = len(self.params['list']) - 1
+        connection_manager.broadcast_log(
+          level='debug',
+          message=f"Node {self.name} send: end of list (next)",
+          permission='root',
+          dag_id=id(self),
+        )
         return
 
     if self.params['index'] < 0:
@@ -58,6 +65,12 @@ class ListNode(DAGNode):
         self.params['index'] = len(self.params['list']) - 1
       else:
         self.params['index'] = 0
+        connection_manager.broadcast_log(
+          level='debug',
+          message=f"Node {self.name} send: end of list (prev)",
+          permission='root',
+          dag_id=id(self),
+        )
         return
 
     value = self.params['list'][self.params['index']]
@@ -65,4 +78,11 @@ class ListNode(DAGNode):
       value = int(value)
     elif value.replace('.', '', 1).isdigit():
       value = float(value)
+    connection_manager.broadcast_log(
+      level='debug',
+      message=f"Node {self.name} send",
+      permission='root',
+      dag_id=id(self),
+      value=value
+    )
     self.set_output(value)

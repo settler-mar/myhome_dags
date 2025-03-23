@@ -3,6 +3,7 @@ from time import sleep
 from time import time
 from utils.logs import log_print
 
+
 class InputPinClass(BasePin):
   name = 'Input'
   input_groups = []

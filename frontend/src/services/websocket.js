@@ -14,6 +14,7 @@ export class WebSocketService {
   }
 
   connect() {
+    console.log('start connect');
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       this.state = 'connecting';
       this.socket = new WebSocket(this.url);

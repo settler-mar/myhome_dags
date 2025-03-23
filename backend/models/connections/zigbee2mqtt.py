@@ -12,6 +12,7 @@ from models.devices import Devices
 import threading
 from datetime import datetime
 from utils.logs import log_print
+from utils.socket_utils import connection_manager
 
 
 def collect_port(port, device_id, mode) -> DbPorts:
@@ -98,6 +99,11 @@ class Zigbee2mqttClass:
 
   def send_value(self, device, port, value: str):
     self.push_message(f'{device.code}/set', {port.code: value})
+    connection_manager.broadcast_log(text='Zigbee2mqtt set value',
+                                     level='debug',
+                                     device_id=device.id,
+                                     permission='root',
+                                     direction='out', )
 
   def get_info(self):
     return {'status': self._status,
@@ -132,9 +138,16 @@ class Zigbee2mqttClass:
     if parts[0] in self._devices and len(parts) == 1:
       self.values[parts[0]] = self.values.get(parts[0], {})
 
-      change_values = {key: value for key, value in message.items() if value != self.values[parts[0]].get(key)}
-      if not change_values:
-        return
+      # change_values = {key: value for key, value in message.items() if value != self.values[parts[0]].get(key)}
+      change_values = message
+      connection_manager.broadcast_log(text='Zigbee2mqtt get value',
+                                       level='debug',
+                                       device_id=self._devices[parts[0]].id,
+                                       permission='root',
+                                       direction='in',
+                                       value=change_values)
+      # if not change_values:
+      #   return
       self.values[parts[0]] = message
       for key, value in change_values.items():
         self._devices[parts[0]].income_value(key, value)

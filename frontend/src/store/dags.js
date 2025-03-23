@@ -178,6 +178,7 @@ export const useDagsStore = defineStore("dags", {
       }
     },
     async removeDag(dagId) {
+      console.log('removeDag', dagId)
       if (this.page.substr(0, 4) === 'tpl:') {
         const tpl_name = this.page.substr(4)
         let tpl_group = dagId.split('_')[0]

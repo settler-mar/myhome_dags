@@ -13,6 +13,7 @@ from models.connections import Connectors
 from typing import Union, List
 from models.dag_node import DAGNode
 import asyncio
+from utils.socket_utils import connection_manager
 
 
 class Port:
@@ -85,11 +86,18 @@ class Port:
     return value, value
 
   def set_value(self, value):  # set new value and send to device
-    print('🤖 set port value', self.device_id, self._id, self.code, value)
     value, raw_value = self._value_to_raw(value)
     self.value = value
     self.last_send = datetime.now()
     self.device.send_value(self, raw_value)
+    connection_manager.broadcast_log(level='value',
+                                     message=f'🤖 set port({self.code}) value',
+                                     permission='admin',
+                                     direction='out',
+                                     device_id=self.device_id,
+                                     pin_id=self._id,
+                                     value=value,
+                                     value_raw=raw_value)
 
   def _raw_to_value(self, value_raw):
     if self.type == 'numeric':
@@ -107,6 +115,16 @@ class Port:
     self.value_raw = value_raw
     value = self._raw_to_value(value_raw)
     self.value = value
+
+    connection_manager.broadcast_log(level='value',
+                                     message='income_value',
+                                     permission='admin',
+                                     direction='in',
+                                     device_id=self.device_id,
+                                     pin_id=self._id,
+                                     value=value,
+                                     value_raw=value_raw)
+
     for subscriber in self.subscriber:
       if hasattr(subscriber, 'income_value'):
         subscriber.income_value((self.device_id, self._id, self.code), (value, self.last_update.timestamp()),

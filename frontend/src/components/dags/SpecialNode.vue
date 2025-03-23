@@ -22,7 +22,7 @@
         v-for="(pin, key) in inputs"
         type="target"
         :position="pin.position"
-        :tooltip="pin.tooltip"
+        :tooltip="data.view_mode?null:pin.tooltip"
         :id="pin.id"
         v-bind:class="{ 'is_param':pin.id.startsWith('param_')}"
       />
@@ -33,7 +33,7 @@
         v-for="(pin, key) in outputs"
         type="source"
         :position="pin.position"
-        :tooltip="pin.tooltip"
+        :tooltip="data.view_mode?null:pin.tooltip"
         :id="pin.id"
       />
     </div>

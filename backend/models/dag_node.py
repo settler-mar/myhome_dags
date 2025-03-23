@@ -134,7 +134,15 @@ class DAGNode:
         await connection_manager.broadcast({"type": "dag",
                                             "action": "update_params",
                                             "data": {"id": self.id, "params": {name: value}}})
-      log_print('🤛 set dag param', id(self), self.__class__, name, value)
+      connection_manager.broadcast_log(level='value',
+                                       message='🤛 set dag param',
+                                       permission='root',
+                                       direction='params',
+                                       dag_id=id(self),
+                                       class_name=self.__class__,
+                                       dag_port_id=name,
+                                       value=value)
+      # log_print('🤛 set dag param', id(self), self.__class__, name, value)
 
     except Exception as e:
       log_print(f"Error setting param {name}={value}: {e}")
@@ -154,7 +162,14 @@ class DAGNode:
   def set_input(self, value: Any, input_group: Optional[str] = 'default'):
     """Устанавливает входной узел (перезаписывает предыдущие)"""
     self.input_values[input_group] = value
-    log_print('🤜 set dag input', id(self), self.__class__, input_group, value)
+    connection_manager.broadcast_log(level='value',
+                                     message='🤜 set dag input',
+                                     permission='root',
+                                     direction='in',
+                                     dag_id=id(self),
+                                     class_name=self.__class__,
+                                     dag_port_id=input_group,
+                                     value=value)
 
   def set_output(self, value: Any, output_group: Optional[str] = 'default'):
     """Устанавливает выходной узел (перезаписывает предыдущие)"""
@@ -171,6 +186,14 @@ class DAGNode:
       'key': (*value['key'], id(self)),
       'new_value': value['new_value'],
     }
+    connection_manager.broadcast_log(level='value',
+                                     message='🤜 set dag input',
+                                     permission='root',
+                                     direction='in',
+                                     dag_id=id(self),
+                                     class_name=self.__class__,
+                                     dag_port_id=output_group,
+                                     value=value['new_value'][0])
 
   def get_json(self) -> dict:
     """Получение метаинформации об узле в формате JSON."""

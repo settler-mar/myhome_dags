@@ -2,6 +2,8 @@ from models.dag_node import DAGNode
 from time import sleep
 from time import time
 from utils.logs import log_print
+from utils.socket_utils import connection_manager
+
 
 class ListNode(DAGNode):
   name = 'filter'
@@ -38,19 +40,43 @@ class ListNode(DAGNode):
   sub_title = ''
 
   def execute(self, input_keys: list):
-    if self.params['state'] == 0:
-      log_print(id(self), self, 'state 0')
-      return
     value = self.input_values.get('value', {'new_value': (0, 0)})['new_value'][0]
+    if self.params['state'] == 0:
+      # log_print(id(self), self, 'state 0')
+      connection_manager.broadcast_log(
+        level='debug',
+        message=f"Node {self.name}: state 0(skip): value {value}",
+        permission='root',
+        dag_id=id(self),
+      )
+      return
     if self.params['state'] == 1 and value == self.prev_value:
-      log_print(id(self), self, 'state 1. NO change', value)
+      # log_print(id(self), self, 'state 1. NO change', value)
+      connection_manager.broadcast_log(
+        level='debug',
+        message=f"Node {self.name}: state 1(skip) NO change: value {value}",
+        permission='root',
+        dag_id=id(self),
+      )
       return
     self.prev_value = value
 
     if self.params['time_filter'] > 0:
       if time() - self.prev_send < self.params['time_filter']:
-        log_print(id(self), self, 'time filter', time() - self.prev_send)
+        # log_print(id(self), self, 'time filter', time() - self.prev_send)
+        connection_manager.broadcast_log(
+          level='debug',
+          message=f"Node {self.name} timer (skip): value {value}",
+          permission='root',
+          dag_id=id(self),
+        )
         return
       self.prev_send = time()
-    log_print(id(self), self, 'send', value)
+    # log_print(id(self), self, 'send', value)
+    connection_manager.broadcast_log(
+      level='debug',
+      message=f"Node {self.name} send: value {value}",
+      permission='root',
+      dag_id=id(self),
+    )
     self.set_output(self.input_values.get('value', {'new_value': (0, 0)}))
