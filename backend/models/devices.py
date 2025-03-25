@@ -96,6 +96,7 @@ class Port:
                                      direction='out',
                                      device_id=self.device_id,
                                      pin_id=self._id,
+                                     pin_name=self.name,
                                      value=value,
                                      value_raw=raw_value)
 
@@ -117,11 +118,12 @@ class Port:
     self.value = value
 
     connection_manager.broadcast_log(level='value',
-                                     message='income_value',
+                                     message=f'income_value {self.code}',
                                      permission='admin',
                                      direction='in',
                                      device_id=self.device_id,
                                      pin_id=self._id,
+                                     pin_name=self.name,
                                      value=value,
                                      value_raw=value_raw)
 
@@ -270,17 +272,31 @@ def devices_init(app, add_routes: bool = True):
     def get_connections_list():
       return {name: item.get_info() for name, item in devices.items()}
 
-    @app.get("/api/live/connections/{device_id}/{port_id}/set/{value}",
-             tags=["live/connections"],
-             dependencies=[Depends(RoleChecker('admin'))])
-    def set_port_value(device_id: Union[str, int], port_id: Union[str, int], value: str):
-      device_id = int(devices.devices_names.get(device_id, device_id))
-
-      if device_id in devices.devices:
-        devices.devices[device_id].set_value(port_id, value)
-
+    @app.post("/api/live/dag/{dag_id}/{port_name}/set",
+              tags=["live/dags"],
+              dependencies=[Depends(RoleChecker('admin'))])
+    @app.post("/api/live/dag/{tpl_id}/{dag_id}/{port_name}/set",
+              tags=["live/dags"],
+              dependencies=[Depends(RoleChecker('admin'))])
+    def set_port_value(port_name: str,
+                       dag_id: Union[str, int],
+                       value: Union[str, int],
+                       tpl_id: str = None):
+      if tpl_id is not None:
+        from orchestrator.template_manager import TemplateManager
+        tpl_id = tpl_id[4:]
+        if tpl_id not in TemplateManager.templates:
+          return {"status": 'error', "message": 'Template not found'}
+        root = TemplateManager.templates[tpl_id]
+      else:
+        from orchestrator.orchestrator import Orchestrator
+        root = Orchestrator()
+      if isinstance(dag_id, str) and dag_id.isdigit():
+        dag_id = int(dag_id)
+      if dag_id in root.dags:
+        root.dags[dag_id].set_value(port_name, value, 'from web')
         return {"status": 'ok'}
-      return {"status": 'error', "message": 'Device or port not found'}
+      return {"status": 'error', "message": 'DAG not found'}, 422
 
     @app.get("/api/live/connections/{device_id}/{port_id}/get",
              tags=["live/connections"],

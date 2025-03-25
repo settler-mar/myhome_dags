@@ -3,7 +3,6 @@ import {ref, computed} from "vue";
 import {webSocketService} from "@/services/websocket";
 import useMessageStore from "@/store/messages";
 import {secureFetch} from "@/services/fetch";
-import {version} from "vue-demi";
 
 const defaultParams = {
   'input': {
@@ -23,6 +22,7 @@ const defaultParams = {
     'public': true,
   }
 }
+
 export const useDagsStore = defineStore("dags", {
   state: () => {
     const dags = ref([]); // Список дагов
@@ -503,11 +503,17 @@ export const useDagsStore = defineStore("dags", {
     async edit_active_template(id) {
       let url = `/api/templates/get/${id}`
       let root = this
+      let pr_page = this.page
       this.page = 'v' + id
       const response = await secureFetch(url)
       const messageStore = useMessageStore();
       messageStore.addMessage({type: "success", text: "Template loaded to view mode."});
       root.active_tpls[id] = await response.json()
+      this.page = pr_page
+      let page_name = 'v' + id
+      setTimeout(() => {
+        root.page = page_name
+      }, 200)
     }
   },
   getters: {

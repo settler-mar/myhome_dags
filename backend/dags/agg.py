@@ -2,6 +2,7 @@ from models.dag_node import DAGNode
 from time import sleep
 from time import time
 from utils.logs import log_print
+from utils.socket_utils import connection_manager
 
 
 class AggNode(DAGNode):

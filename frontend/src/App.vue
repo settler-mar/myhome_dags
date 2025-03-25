@@ -46,9 +46,14 @@
 
 <script>
 import router from "@/router";
+import logsStore from "@/store/logs";
+import {mapStores} from "pinia";
+import useDagsStore from "@/store/dags";
 
 export default {
   computed: {
+    ...mapStores(logsStore),
+    ...mapStores(useDagsStore),
     menuItems() {
       let items = [];
       router.getRoutes().forEach((route) => {
@@ -66,6 +71,9 @@ export default {
       });
       return items;
     },
+  },
+  mounted() {
+    this.logsStore.initialize()
   },
   beforeUnmount() {
     this.$websocket.close();

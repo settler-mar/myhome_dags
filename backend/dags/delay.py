@@ -42,9 +42,9 @@ class DelayNode(DAGNode):
 
     connection_manager.broadcast_log(
       level='debug',
-      message=f"🤖 {self.name} finished at {time()}. Delay: {self.params['delay_seconds']} seconds.",
+      message=f"🤖 finished. Delay: {self.params['delay_seconds']} seconds.",
       permission='root',
-      dag_id=id(self),
+      dag=self,
     )
     # log_print(f"Node {self.name} finished at {time()}. Delay: {self.params['delay_seconds']} seconds.")
     self.set_output(value)
@@ -56,18 +56,18 @@ class DelayNode(DAGNode):
       self.input_values['stop'] = None
       connection_manager.broadcast_log(
         level='debug',
-        message=f"Node {self.name} stop.",
+        message=f"🤖 stop",
         permission='root',
-        dag_id=id(self),
+        dag=self,
       )
 
     # Запуск узла
     if 'start' in input_keys:
       connection_manager.broadcast_log(
         level='debug',
-        message=f"Node {self.name} started at {time()}. Delay: {self.params['delay_seconds']} seconds.",
+        message=f"🤖 Started. Delay: {self.params['delay_seconds']} seconds.",
         permission='root',
-        dag_id=id(self),
+        dag=self,
       )
       self.thread.submit(lambda x: sleep(x), self.params['delay_seconds'])  # Синхронная задержка
       self.thread.submit(lambda x: self.send_update(), 0)  # Асинхронное обновление

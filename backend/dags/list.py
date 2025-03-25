@@ -54,9 +54,9 @@ class ListNode(DAGNode):
         self.params['index'] = len(self.params['list']) - 1
         connection_manager.broadcast_log(
           level='debug',
-          message=f"Node {self.name} send: end of list (next)",
+          message=f"🤖 Send: end of list (next)",
           permission='root',
-          dag_id=id(self),
+          dag=self,
         )
         return
 
@@ -67,9 +67,9 @@ class ListNode(DAGNode):
         self.params['index'] = 0
         connection_manager.broadcast_log(
           level='debug',
-          message=f"Node {self.name} send: end of list (prev)",
+          message=f"🤖 Send: end of list (prev)",
           permission='root',
-          dag_id=id(self),
+          dag=self,
         )
         return
 
@@ -80,9 +80,9 @@ class ListNode(DAGNode):
       value = float(value)
     connection_manager.broadcast_log(
       level='debug',
-      message=f"Node {self.name} send",
+      message=f"🤖 Send",
       permission='root',
-      dag_id=id(self),
+      dag=self,
       value=value
     )
     self.set_output(value)

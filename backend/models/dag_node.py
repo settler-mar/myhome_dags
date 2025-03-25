@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 import multiprocessing
 import concurrent.futures
 
@@ -138,8 +138,7 @@ class DAGNode:
                                        message='🤛 set dag param',
                                        permission='root',
                                        direction='params',
-                                       dag_id=id(self),
-                                       class_name=self.__class__,
+                                       dag=self,
                                        dag_port_id=name,
                                        value=value)
       # log_print('🤛 set dag param', id(self), self.__class__, name, value)
@@ -159,17 +158,25 @@ class DAGNode:
     """Устанавливает позицию узла"""
     self.position = [x, y]
 
-  def set_input(self, value: Any, input_group: Optional[str] = 'default'):
+  def set_input(self, value: Any, input_group: Optional[str] = 'default', comment: str = None):
     """Устанавливает входной узел (перезаписывает предыдущие)"""
     self.input_values[input_group] = value
     connection_manager.broadcast_log(level='value',
-                                     message='🤜 set dag input',
+                                     message='🤛 set dag input' if comment is None else f'🤛 {comment}',
                                      permission='root',
                                      direction='in',
-                                     dag_id=id(self),
-                                     class_name=self.__class__,
+                                     dag=self,
                                      dag_port_id=input_group,
                                      value=value)
+
+  def set_value(self, port_name: str, value: Union[str, int], comment: str = 'manual'):
+    """Устанавливает значение входного порта"""
+    value = {
+      'key': [comment],
+      'new_value': (value, datetime.now().timestamp()),
+    }
+    self.set_input(value, port_name, comment)
+    self.process([port_name])
 
   def set_output(self, value: Any, output_group: Optional[str] = 'default'):
     """Устанавливает выходной узел (перезаписывает предыдущие)"""
@@ -187,11 +194,10 @@ class DAGNode:
       'new_value': value['new_value'],
     }
     connection_manager.broadcast_log(level='value',
-                                     message='🤜 set dag input',
+                                     message='🤜 set dag output',
                                      permission='root',
-                                     direction='in',
-                                     dag_id=id(self),
-                                     class_name=self.__class__,
+                                     direction='out',
+                                     dag=self,
                                      dag_port_id=output_group,
                                      value=value['new_value'][0])
 

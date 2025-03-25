@@ -77,9 +77,9 @@ class SchedulerNode(DAGNode):
     # log_print('SchedulerNode send', id(self), value)
     connection_manager.broadcast_log(
       level='debug',
-      message=f"Node {self.name} send",
+      message=f"🤖 Send",
       permission='root',
-      dag_id=id(self),
+      dag=self,
       value=value
     )
     self.set_output(value)
@@ -91,9 +91,9 @@ class SchedulerNode(DAGNode):
       # log_print(datetime.now(), 'SchedulerNode new shadule', id(self), self.scheduler_str)
       connection_manager.broadcast_log(
         level='debug',
-        message=f"Node {self.name} new shadule: {self.scheduler_str}",
+        message=f"🤖 new shadule: {self.scheduler_str}",
         permission='root',
-        dag_id=id(self),
+        dag=self,
       )
       self.run_at = None
       try:
@@ -107,9 +107,9 @@ class SchedulerNode(DAGNode):
         # log_print(datetime.now(), 'SchedulerNode new shadule error', id(self), e)
         connection_manager.broadcast_log(
           level='error',
-          message=f"Node {self.name} new shadule error: {e}",
+          message=f"{e}",
           permission='root',
-          dag_id=id(self),
+          dag=self,
         )
 
   def run_step(self):

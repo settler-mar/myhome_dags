@@ -5,7 +5,7 @@ from utils.logs import log_print
 from utils.socket_utils import connection_manager
 
 
-class ListNode(DAGNode):
+class FilterNode(DAGNode):
   name = 'filter'
   version = '0.0'
   description = 'Вывод значение из списка'
@@ -45,18 +45,18 @@ class ListNode(DAGNode):
       # log_print(id(self), self, 'state 0')
       connection_manager.broadcast_log(
         level='debug',
-        message=f"Node {self.name}: state 0(skip): value {value}",
+        message=f"🤖 State 0(skip): value {value}",
         permission='root',
-        dag_id=id(self),
+        dag=self,
       )
       return
     if self.params['state'] == 1 and value == self.prev_value:
       # log_print(id(self), self, 'state 1. NO change', value)
       connection_manager.broadcast_log(
         level='debug',
-        message=f"Node {self.name}: state 1(skip) NO change: value {value}",
+        message=f"🤖 State 1(skip) NO change: value {value}",
         permission='root',
-        dag_id=id(self),
+        dag=self,
       )
       return
     self.prev_value = value
@@ -66,17 +66,17 @@ class ListNode(DAGNode):
         # log_print(id(self), self, 'time filter', time() - self.prev_send)
         connection_manager.broadcast_log(
           level='debug',
-          message=f"Node {self.name} timer (skip): value {value}",
+          message=f"🤖 Timer (skip): value {value}",
           permission='root',
-          dag_id=id(self),
+          dag=self,
         )
         return
       self.prev_send = time()
     # log_print(id(self), self, 'send', value)
     connection_manager.broadcast_log(
       level='debug',
-      message=f"Node {self.name} send: value {value}",
+      message=f"🤖 Send: value {value}",
       permission='root',
-      dag_id=id(self),
+      dag=self,
     )
     self.set_output(self.input_values.get('value', {'new_value': (0, 0)}))

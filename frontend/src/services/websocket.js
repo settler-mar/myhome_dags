@@ -26,10 +26,10 @@ export class WebSocketService {
       };
 
       this.socket.onmessage = (event) => {
-        console.log("ws: message:", event.data);
+        // console.log("ws: message:", event.data);
         const data = JSON.parse(event.data);
-        const eventKey = `${data.type}:${data.action}`;
-        const payload = data.data;
+        const eventKey = `${data.type}:${data.action || ''}`;
+        const payload = data.data || data;
         if (this.listeners.has(eventKey)) {
           this.listeners.get(eventKey).forEach((callback) => callback(payload));
         }
