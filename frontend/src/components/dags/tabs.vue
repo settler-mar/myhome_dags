@@ -1,7 +1,7 @@
 <template>
   <div class="tabs">
     <div class="tab" v-for="(tab, index) in out_list" :key="index"
-         @click="$emit('update:model', index)"
+         @click.stop="$emit('update:model', index)"
          :class="{ active: model === index }">
       {{ tab.title }}
 
@@ -9,15 +9,15 @@
         <span v-if="tab.on_save" class="need_save on_save">
           <v-icon size="x-small">mdi-content-save</v-icon>
         </span>
-        <span v-else class="need_save" @click="on_save(index)">
+        <span v-else class="need_save" @click.stop="on_save(index)">
         <v-icon size="x-small">mdi-content-save</v-icon>
       </span>
       </template>
-      <span class="close_tab" v-if="tab.close && on_close" @click="on_close(index)">
+      <span class="close_tab" v-if="tab.close && on_close" @click.stop="on_close(index)">
         <v-icon size="x-small">mdi-close</v-icon>
       </span>
     </div>
-    <div v-if="add_button" class="tab tab-add" @click="add_button()">+</div>
+    <div v-if="add_button" class="tab tab-add" @click.stop="add_button()">+</div>
   </div>
 </template>
 

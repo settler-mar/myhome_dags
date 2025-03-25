@@ -13,6 +13,7 @@ from models.connections import Connectors
 from typing import Union, List
 from models.dag_node import DAGNode
 import asyncio
+from utils.socket_utils import connection_manager
 
 
 class Port:
@@ -85,11 +86,19 @@ class Port:
     return value, value
 
   def set_value(self, value):  # set new value and send to device
-    print('🤖 set port value', self.device_id, self._id, self.code, value)
     value, raw_value = self._value_to_raw(value)
     self.value = value
     self.last_send = datetime.now()
     self.device.send_value(self, raw_value)
+    connection_manager.broadcast_log(level='value',
+                                     message=f'🤖 set port({self.code}) value',
+                                     permission='admin',
+                                     direction='out',
+                                     device_id=self.device_id,
+                                     pin_id=self._id,
+                                     pin_name=self.name,
+                                     value=value,
+                                     value_raw=raw_value)
 
   def _raw_to_value(self, value_raw):
     if self.type == 'numeric':
@@ -107,6 +116,17 @@ class Port:
     self.value_raw = value_raw
     value = self._raw_to_value(value_raw)
     self.value = value
+
+    connection_manager.broadcast_log(level='value',
+                                     message=f'income_value {self.code}',
+                                     permission='admin',
+                                     direction='in',
+                                     device_id=self.device_id,
+                                     pin_id=self._id,
+                                     pin_name=self.name,
+                                     value=value,
+                                     value_raw=value_raw)
+
     for subscriber in self.subscriber:
       if hasattr(subscriber, 'income_value'):
         subscriber.income_value((self.device_id, self._id, self.code), (value, self.last_update.timestamp()),
@@ -241,36 +261,51 @@ class Devices(SingletonClass):
         print(f"Port {port.id} not found in devices[{port.device_id}]")
 
 
-def devices_init(app):
+def devices_init(app, add_routes: bool = True):
   devices = Devices()
 
-  @app.get("/api/live/devices",
-           tags=["live/devices"],
-           response_model=dict,
-           dependencies=[Depends(RoleChecker('admin'))])
-  def get_connections_list():
-    return {name: item.get_info() for name, item in devices.items()}
+  if add_routes:
+    @app.get("/api/live/devices",
+             tags=["live/devices"],
+             response_model=dict,
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_connections_list():
+      return {name: item.get_info() for name, item in devices.items()}
 
-  @app.get("/api/live/connections/{device_id}/{port_id}/set/{value}",
-           tags=["live/connections"],
-           dependencies=[Depends(RoleChecker('admin'))])
-  def set_port_value(device_id: Union[str, int], port_id: Union[str, int], value: str):
-    device_id = int(devices.devices_names.get(device_id, device_id))
+    @app.post("/api/live/dag/{dag_id}/{port_name}/set",
+              tags=["live/dags"],
+              dependencies=[Depends(RoleChecker('admin'))])
+    @app.post("/api/live/dag/{tpl_id}/{dag_id}/{port_name}/set",
+              tags=["live/dags"],
+              dependencies=[Depends(RoleChecker('admin'))])
+    def set_port_value(port_name: str,
+                       dag_id: Union[str, int],
+                       value: Union[str, int],
+                       tpl_id: str = None):
+      if tpl_id is not None:
+        from orchestrator.template_manager import TemplateManager
+        tpl_id = tpl_id[4:]
+        if tpl_id not in TemplateManager.templates:
+          return {"status": 'error', "message": 'Template not found'}
+        root = TemplateManager.templates[tpl_id]
+      else:
+        from orchestrator.orchestrator import Orchestrator
+        root = Orchestrator()
+      if isinstance(dag_id, str) and dag_id.isdigit():
+        dag_id = int(dag_id)
+      if dag_id in root.dags:
+        root.dags[dag_id].set_value(port_name, value, 'from web')
+        return {"status": 'ok'}
+      return {"status": 'error', "message": 'DAG not found'}, 422
 
-    if device_id in devices.devices:
-      devices.devices[device_id].set_value(port_id, value)
-
-      return {"status": 'ok'}
-    return {"status": 'error', "message": 'Device or port not found'}
-
-  @app.get("/api/live/connections/{device_id}/{port_id}/get",
-           tags=["live/connections"],
-           dependencies=[Depends(RoleChecker('admin'))])
-  def get_port_value(device_id: Union[str, int], port_id: Union[str, int]):
-    device_id = int(devices.devices_names.get(device_id, device_id))
-    if device_id in devices.devices:
-      return {"status": 'ok', "value": devices.devices[device_id].get_value(port_id)}
-    return {"status": 'error', "message": 'Device or port not found'}
+    @app.get("/api/live/connections/{device_id}/{port_id}/get",
+             tags=["live/connections"],
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_port_value(device_id: Union[str, int], port_id: Union[str, int]):
+      device_id = int(devices.devices_names.get(device_id, device_id))
+      if device_id in devices.devices:
+        return {"status": 'ok', "value": devices.devices[device_id].get_value(port_id)}
+      return {"status": 'error', "message": 'Device or port not found'}
 
 
 class PinsManager(SingletonClass):

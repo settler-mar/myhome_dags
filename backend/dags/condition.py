@@ -1,6 +1,7 @@
 from models.dag_node import DAGNode
 from time import sleep
 from time import time
+from utils.socket_utils import connection_manager
 
 
 class ConditionNode(DAGNode):
@@ -58,12 +59,18 @@ class ConditionNode(DAGNode):
       '<': value < threshold,
       '<=': value <= threshold,
     }[condition]
+    connection_manager.broadcast_log(
+      level='debug',
+      message=f'🤖 {value} {condition} {threshold} -> {result}',
+      permission='root',
+      dag=self,
+    )
 
     value = self.params.get('out_value', -1)
     if value == -1:
       value = self.input_values.get('value')
     elif value == -2:
       value = self.params.get('custom_value')
-    print(f"🤖 ConditionNode {id(self)}: {value} {condition} {threshold} -> {result}")
+
     self.set_output(255 if result else 0)
     self.set_output(value, 'true' if result else 'false')

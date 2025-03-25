@@ -3,6 +3,8 @@ from models.dag_node import DAGNode
 from models.root_dag import rootDag
 import asyncio
 
+from utils.logs import log_print
+
 
 class DAGTemplateBase(DAGNode, rootDag):
   """
@@ -15,17 +17,18 @@ class DAGTemplateBase(DAGNode, rootDag):
     self.version = tpl.get('version', '0.0.1')
     if (self.name, self.version) in self.path:
       raise ValueError(f'Loop in DAG template path: {self.path}')
+    self.parent = self.path[-1] if self.path else None
     self.path.append((self.name, self.version))
 
     self.description = tpl.get('description', 'Template description')
     self.sub_title = tpl.get('sub_title', 'Template sub title')
-    template = tpl.get('template', {})
+    self.template = tpl.get('template', {})
 
-    self.input_groups = template.get('input', [])
+    self.input_groups = self.template.get('input', [])
     self.params_groups = []
 
     params = params or {}
-    for param in template.get('param', []):
+    for param in self.template.get('param', []):
       if 'params' in param:
         for key, value in param['params'].items():
           if key in ['min', 'max', 'step']:
@@ -35,7 +38,7 @@ class DAGTemplateBase(DAGNode, rootDag):
       if param['name'] in params:
         param['default'] = params[param['name']]
       self.params_groups.append(param)
-    self.output_groups = template.get('output', [])
+    self.output_groups = self.template.get('output', [])
 
     self.dags = {}  # Список DAG-ов для выполнения
     super().__init__()
@@ -58,11 +61,15 @@ class DAGTemplateBase(DAGNode, rootDag):
       for output_dags in self.output_groups:
         output_dags['pin'].set_root_tpl(self)
 
-    if 'dags' in template:
-      dag_id_map = asyncio.create_task(self.create_from_json(template['dags']))
+    if 'dags' in self.template:
+      dag_id_map = asyncio.create_task(self.create_from_json(self.template['dags']))
       dag_id_map.add_done_callback(lambda x: create_outputs(x.result()))
     else:
       create_outputs({})
+
+    from orchestrator.template_manager import TemplateManager
+    TemplateManager.templates[self.id] = self
+    log_print('🤓 DAGTemplateBase init', self.id, TemplateManager.templates[self.id])
 
   @property
   def id(self):
@@ -102,3 +109,18 @@ class DAGTemplateBase(DAGNode, rootDag):
 
     for dag, input_keys in execute_dags.items():
       dag.process(input_keys)
+
+  def list_dags(self, is_clean: bool = False, load_all: bool = False, is_simple: bool = False):
+    data = super().list_dags(is_clean, load_all, is_simple)
+
+    source_outputs = {
+      group: {item['name']: item for item in self.template.get(group, [])} for group in ['input', 'param', 'output']
+    }
+    for item in data:
+      code = item['code'].lower()
+      if code in source_outputs:
+        item['outputs'] = {'default': [(pin[0], pin[1].id, pin[2]) for pin in
+                                       source_outputs[code]
+                                       .get(item['name'], {})
+                                       .get('outputs', {})]}
+    return data

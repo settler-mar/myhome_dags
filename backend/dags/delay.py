@@ -2,6 +2,8 @@ from models.dag_node import DAGNode
 from time import sleep
 from time import time
 from utils.logs import log_print
+from utils.socket_utils import connection_manager
+
 
 class DelayNode(DAGNode):
   name = 'Delay'
@@ -37,7 +39,14 @@ class DelayNode(DAGNode):
     value = self.params.get('out_value', -1)
     if value == -1:
       value = self.input_values.get('start'),
-    log_print(f"Node {self.name} finished at {time()}. Delay: {self.params['delay_seconds']} seconds.")
+
+    connection_manager.broadcast_log(
+      level='debug',
+      message=f"🤖 finished. Delay: {self.params['delay_seconds']} seconds.",
+      permission='root',
+      dag=self,
+    )
+    # log_print(f"Node {self.name} finished at {time()}. Delay: {self.params['delay_seconds']} seconds.")
     self.set_output(value)
 
   def execute(self, input_keys: list):
@@ -45,9 +54,20 @@ class DelayNode(DAGNode):
     if 'stop' in input_keys:
       self.stop_thread()
       self.input_values['stop'] = None
+      connection_manager.broadcast_log(
+        level='debug',
+        message=f"🤖 stop",
+        permission='root',
+        dag=self,
+      )
 
     # Запуск узла
     if 'start' in input_keys:
-      log_print(f"Node {self.name} started at {time()}. Delay: {self.params['delay_seconds']} seconds.")
+      connection_manager.broadcast_log(
+        level='debug',
+        message=f"🤖 Started. Delay: {self.params['delay_seconds']} seconds.",
+        permission='root',
+        dag=self,
+      )
       self.thread.submit(lambda x: sleep(x), self.params['delay_seconds'])  # Синхронная задержка
       self.thread.submit(lambda x: self.send_update(), 0)  # Асинхронное обновление

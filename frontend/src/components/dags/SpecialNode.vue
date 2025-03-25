@@ -1,6 +1,6 @@
 <template>
   <div class="vue-flow__node-default">
-    <!--    {{ data.dag.id }}-->
+    <!--        {{ data.dag.id }}-->
     <!--    {{ data.dag }}-->
     <!--    {{ config }}-->
     <!--    {{ config['params']}}-->
@@ -8,13 +8,21 @@
     <span class="dag_title" :version="version">{{ data.dag.title }}</span>
     <span class="dag_sub_title" v-if="data.dag.sub_title">{{ sub_title }}</span>
     <span class="dag_sub_title" v-if="data.dag.group">{{ data.dag.group }}</span>
+    <v-btn
+      class="dag_ctrl"
+      size="x-small"
+      density="compact"
+      v-if="String(data.dag.id).split(':')[0] === 'tpl'"
+      icon="mdi-eye"
+      @click.stop="view_tpl(data.dag.id)"
+    />
 
     <div class="vue-flow__handle-wrap" :item_count="inputs.length">
       <Handle
         v-for="(pin, key) in inputs"
         type="target"
         :position="pin.position"
-        :tooltip="pin.tooltip"
+        :tooltip="data.view_mode?null:pin.tooltip"
         :id="pin.id"
         v-bind:class="{ 'is_param':pin.id.startsWith('param_')}"
       />
@@ -25,7 +33,7 @@
         v-for="(pin, key) in outputs"
         type="source"
         :position="pin.position"
-        :tooltip="pin.tooltip"
+        :tooltip="data.view_mode?null:pin.tooltip"
         :id="pin.id"
       />
     </div>
@@ -33,10 +41,10 @@
 </template>
 
 <script>
-import dagsStore from "@/store/dags";
 import {mapStores} from "pinia";
 
 import {Handle, Position} from '@vue-flow/core'
+import dagsStore from "@/store/dags";
 
 export default {
   props: {
@@ -57,11 +65,21 @@ export default {
   components: {
     Handle
   },
+  methods: {
+    async view_tpl(id) {
+      await this.dagsStore.edit_active_template(id)
+    }
+  },
   computed: {
     ...mapStores(dagsStore),
     config() {
-      if (this.data.pins && ['input', 'output', 'param'].indexOf(this.data.dag.id.split('_')[0]) !== -1) {
+      if (this.data.pins &&
+        ['input', 'output', 'param'].indexOf(this.data.dag.id.split('_')[0]) !== -1) {
         return this.data.pins
+      }
+      if (this.data.dag.pins &&
+        (['Param', 'Input', 'Output'].indexOf(this.data.dag.code) !== -1)) {
+        return this.data.dag.pins
       }
 
       if (typeof (this.data.dag.id) === 'string' && this.data.dag.id.split(':')[0] === 'tpl') {
@@ -85,6 +103,9 @@ export default {
           return dag
         }
       }
+
+
+      console.log('skip', this.data.dag)
       return {}
     },
     version() {
@@ -109,10 +130,13 @@ export default {
     },
     inputs() {
       let pins = []
+      /*if (['input', 'output', 'param'].indexOf(this.config['code']) !== -1) {
+        console.log('>inputs', this.config)
+        return pins
+      }*/
       if (!this.config.inputs && !this.config.params) {
         return pins
       }
-      console.log('>>>', this.config)
       let need_sort = false
       for (let pin of this.config['inputs'] || []) {
         pins.push({
@@ -213,5 +237,16 @@ export default {
       }
     }
   }
+}
+
+.dag_ctrl {
+  position: absolute;
+  right: -7px;
+  top: -7px;
+  z-index: 1;
+  padding: 0;
+  height: 16px !important;
+  width: 16px !important;
+  background: #d5d5d5;
 }
 </style>

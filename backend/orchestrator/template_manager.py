@@ -11,11 +11,14 @@ from datetime import datetime
 from models.dag_template import DAGTemplateBase
 from utils.auth import RoleChecker
 import asyncio
+from orchestrator.orchestrator import postDag
 
 router = APIRouter()
 
 
 class TemplateManager(SingletonClass):
+  templates = {}
+
   def __init__(self):
     self.db = db_session()
 
@@ -31,7 +34,7 @@ class TemplateManager(SingletonClass):
     if not tpl:
       return
     dag = DAGTemplateBase(tpl=tpl.__dict__, path=path, params=params)
-
+    dag.root_name = f'v{dag.id}'
     return dag
 
 
@@ -118,3 +121,16 @@ async def save_template(data: DAGTemplateUpdate):
                                       "action": "update",
                                       "data": data})
   return {'code': 'ok'}
+
+
+@router.get("/templates/active_list", tags=["dags_templates"], dependencies=[Depends(RoleChecker('admin'))])
+async def get_active_templates():
+  return {k: {'name': v.name, 'version': v.version} for k, v in TemplateManager.templates.items()}
+
+
+@router.get("/templates/get/{tpl_id}", tags=["dags_templates"], dependencies=[Depends(RoleChecker('admin'))])
+async def get_active_template(tpl_id: str):
+  tpl = TemplateManager.templates.get(tpl_id)
+  if not tpl:
+    return {'code': 'error', 'message': 'Init template not found'}, 422
+  return TemplateManager.templates.get(tpl_id).list_dags(is_clean=False, load_all=True)

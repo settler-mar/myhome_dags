@@ -58,7 +58,7 @@ class Connectors(SingletonClass):
         log_print(f"Error while starting connector {connector._id}")
 
 
-def init_connectors(app):
+def init_connectors(app, add_routes: bool = True):
   connect = Connectors()
 
   log_print(f"Connectors class initialized:")
@@ -77,23 +77,24 @@ def init_connectors(app):
         continue
 
       connect.add(name, getattr(module, class_name))
-      hasattr(module, 'add_routes') and module.add_routes(app)
+      add_routes and hasattr(module, 'add_routes') and module.add_routes(app)
   connect.init_connectors()
 
-  @app.get("/api/live/connections",
-           tags=["live/connections"],
-           response_model=dict,
-           dependencies=[Depends(RoleChecker('admin'))])
-  def get_connections_list():
-    return {name: connector.get_info() for name, connector in connect.connectors.items()}
+  if add_routes:
+    @app.get("/api/live/connections",
+             tags=["live/connections"],
+             response_model=dict,
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_connections_list():
+      return {name: connector.get_info() for name, connector in connect.connectors.items()}
 
-  @app.get("/api/live/connections/status",
-           tags=["live/connections"],
-           response_model=dict,
-           dependencies=[Depends(RoleChecker('admin'))])
-  def get_connections_status():
-    log_print(connect.connectors)
-    return {name: connector.get_status() for name, connector in connect.connectors.items() if
-            hasattr(connector, 'get_status')}
+    @app.get("/api/live/connections/status",
+             tags=["live/connections"],
+             response_model=dict,
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_connections_status():
+      log_print(connect.connectors)
+      return {name: connector.get_status() for name, connector in connect.connectors.items() if
+              hasattr(connector, 'get_status')}
 
   return connect

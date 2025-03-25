@@ -3,7 +3,7 @@
   <!--    {{ nodes }}-->
   <!--  {{ edges }}-->
   <!--  {{ dagsStore.dags_db}}-->
-<!--  {{ edited_params }}-->
+  <!--  {{ edited_params }}-->
   <!--  {{ sel_el }}-->
   <!--    {{dagsStore.templates_edit[this.dagsStore.page.substr(4)]['input']}}-->
   <!--    {{dagsStore.templates_edit[this.dagsStore.page.substr(4)]}}-->
@@ -25,6 +25,10 @@
       @nodes-change="onChangeNode"
       @edges-change="onChangeEdge"
       @connect="onConnect"
+
+      :nodes-draggable="!view_mode"
+      :nodes-connectable="!view_mode"
+      :delete-key-code="!view_mode?'Delete':null"
     >
       <DropzoneBackground
         :style="{
@@ -88,29 +92,49 @@
     </VueFlow>
 
     <aside>
+      <v-checkbox dense hide-details label="Show data online" class="inline-checkbox" v-model="view_mode"/>
       <template v-if="sel_el && !Object.is(sel_el)">
         <input type="radio" id="item0" name="select_tab">
         <label for="item0">Property</label>
         <EditDagParam :params="edited_params"/>
       </template>
 
-      <input type="radio" checked id="item4" name="select_tab">
-      <label for="item4">Pins</label>
-      <PinsDag/>
+      <template v-if="!view_mode">
+        <input type="radio" id="item4" name="select_tab">
+        <label for="item4">Pins</label>
+        <PinsDag/>
+      </template>
 
-      <input type="radio" checked id="item1" name="select_tab">
-      <label for="item1">Dags</label>
-      <SidebarDag/>
+      <template v-if="!view_mode">
+        <input type="radio" checked id="item1" name="select_tab">
+        <label for="item1">Dags</label>
+        <SidebarDag/>
+      </template>
 
-      <input type="radio" id="item2" name="select_tab">
-      <label for="item2">Templates</label>
-      <TemplateDag/>
+      <template v-if="!view_mode">
+        <input type="radio" id="item2" name="select_tab">
+        <label for="item2">Templates</label>
+        <TemplateDag/>
+      </template>
 
-      <template v-if="dagsStore.page.substr(0,4)==='tpl:'">
+      <template v-if="dagsStore.page.substr(0,4)==='tpl:' && !view_mode">
         <input type="radio" id="item3" name="select_tab">
         <label for="item3">Template property</label>
         <TemplateProperty/>
       </template>
+
+      <template v-if="sel_el && !Object.is(sel_el) && dagsStore.page.substr(0, 4) !== 'tpl:'">
+        <input type="radio" id="item5" name="select_tab">
+        <label for="item5">Handles</label>
+        <dag-handle :sel_el="sel_el"/>
+      </template>
+
+      <template v-if="sel_el && !Object.is(sel_el) && sel_logs.length && dagsStore.page.substr(0, 4) !== 'tpl:'">
+        <input type="radio" id="item6" name="select_tab">
+        <label for="item6">dag logs</label>
+        <dag-logs :logs="sel_logs"/>
+      </template>
+
       <div/>
     </aside>
   </v-container>
@@ -145,12 +169,16 @@ import EditDagParam from "@/components/dags/EditDagParam.vue";
 import dagsStore from "@/store/dags";
 import messagesStore from "@/store/messages";
 import {mapStores} from "pinia";
+import DagLogs from "@/components/dags/DagLogs.vue";
+import logsStore from '@/store/logs';
+import DagHandle from "@/components/dags/DagHandle.vue";
 
 let flow = null
 
 export default {
   data() {
     return {
+      view_mode: false,
       dark: true,
       isDragOver: ref(isDragOver),
       lastAction: null,
@@ -162,6 +190,8 @@ export default {
     }
   },
   components: {
+    DagHandle,
+    DagLogs,
     VueFlow,
     SpecialNode,
     SpecialEdge,
@@ -211,6 +241,7 @@ export default {
               type: 'special',
               position: {x: dag.position[0], y: dag.position[1]},
               data: {
+                'view_mode': this.view_mode,
                 'dag': {
                   'title': dag.name,
                   ...dag,
@@ -223,18 +254,33 @@ export default {
           }
         }
         return nodes
-      }/**/
-      /*if (this.dagsStore.page.substr(0, 4) === 'pin:'){
-        let nodes = []
-        let tpl_key = this.dagsStore.page.substr(4)
-        this.dagsStore
-      }*/
-      return this.dagsStore.dags.filter(dag => (!dag.page && this.dagsStore.page === 'main') || dag.page === this.dagsStore.page).map(dag => {
+      }
+      if (this.dagsStore.page.substr(0, 5) === 'vtpl:') {
+        let tpl_key = this.dagsStore.page.substr(1)
+        if (!this.dagsStore.active_tpls[tpl_key]) {
+          return []
+        }
+        return this.dagsStore.active_tpls[tpl_key].map(dag => {
+          return {
+            id: String(dag.id),
+            type: 'special',
+            position: {x: dag.position[0], y: dag.position[1]},
+            data: {
+              dag,
+              'view_mode': this.view_mode,
+            },
+          }
+        })
+      }
+      return this.dagsStore.dags.filter(dag => (!dag.page && this.dagsStore.page.toLowerCase() === 'main') || dag.page === this.dagsStore.page).map(dag => {
         return {
           id: dag.id,
           type: 'special',
           position: {x: dag.position[0], y: dag.position[1]},
-          data: {dag},
+          data: {
+            dag,
+            'view_mode': this.view_mode,
+          },
         }
       })
     },
@@ -262,10 +308,12 @@ export default {
         }
         return edges
       }
-      for (let dag of this.dagsStore.dags) {
-        if ((dag.page && dag.page !== this.dagsStore.page) || (!dag.page && this.dagsStore.page !== 'main')) {
-          continue
-        }
+      let dags = this.dagsStore.page.substr(0, 5) === 'vtpl:' ?
+        this.dagsStore.active_tpls[this.dagsStore.page.substr(1)] || [] :
+        this.dagsStore.dags.filter(dag =>
+          (!dag.page && this.dagsStore.page.toLowerCase() === 'main') || dag.page === this.dagsStore.page)
+
+      for (let dag of dags) {
         for (let [key, value] of Object.entries(dag.outputs)) {
           for (let [index, edge] of value.entries()) {
             edges.push({
@@ -283,7 +331,7 @@ export default {
     pages() {
       let pages = this.dagsStore.page_collect
       for (let dag of this.dagsStore.dags) {
-        let page_name = dag.page || 'main'
+        let page_name = dag.page || 'MAIN'
         if (pages.indexOf(page_name) === -1)
           pages.push(page_name)
       }
@@ -296,14 +344,28 @@ export default {
           on_save: this.dagsStore.templates_edit[key].on_save,
         })
       }
+      for (let key in this.dagsStore.active_tpls) {
+        pages.push({
+          title: key,
+          id: 'v' + key,
+          close: true,
+          // save: this.dagsStore.templates_edit[key].need_save,
+          // on_save: this.dagsStore.templates_edit[key].on_save,
+        })
+      }
       return pages
     },
     selectTPL() {
       this.las_tab_change = new Date()
-      if (this.dagsStore.page.substr(0, 4) !== 'tpl:') {
-        return {}
+      let t_key = this.dagsStore.page.split(':')[1]
+      if (t_key === 'tpl' && this.dagsStore.templates_edit[this.dagsStore.page.substr(4)]) {
+        return this.dagsStore.templates_edit[this.dagsStore.page.substr(4)] || {}
       }
-      return this.dagsStore.templates_edit[this.dagsStore.page.substr(4)] || {}
+      if (t_key === 'vtpl' && this.dagsStore.active_tpls[this.dagsStore.page.substr(1)]) {
+        console.log('select tpl', this.dagsStore.page.substr(1))
+        return this.dagsStore.active_tpls[this.dagsStore.page.substr(1)] || {}
+      }
+      return {}
     },
     tab() {
       return this.dagsStore.page
@@ -433,8 +495,13 @@ export default {
       }
       return
     },
+    sel_logs() {
+      if (!this.sel_el || !this.logsStore || !this.logsStore.by_dag) return [];
+      return this.logsStore.by_dag[this.sel_el.id] || [];
+    },
     ...mapStores(dagsStore),
-    ...mapStores(messagesStore)
+    ...mapStores(messagesStore),
+    ...mapStores(logsStore)
   },
   methods: {
     onDrop,
@@ -505,6 +572,7 @@ export default {
           }
         } else if (change.type === 'remove') {
           this.dagsStore.removeDag(change.id)
+        } else if (change.type === 'dimensions') {
         } else {
           console.log(change)
         }
@@ -520,10 +588,20 @@ export default {
     close_tab(index) {
       if (this.dagsStore.page.substr(0, 4) === 'tpl:') {
         delete this.dagsStore.templates_edit[this.dagsStore.page.substr(4)]
+      } else if (this.dagsStore.page.substr(0, 5) === 'vtpl:') {
+        let id = this.dagsStore.page.substr(1)
+        delete this.dagsStore.active_tpls[id]
       } else {
         this.dagsStore.page_collect = this.dagsStore.page_collect.filter((item, i) => (item.id || item.title) !== index)
       }
-      this.dagsStore.page = 'main'
+      let page = this.dagsStore.page === this.pages[0] ? this.pages[1] : this.pages[0]
+      if (typeof page !== 'string') {
+        page = page.id
+      }
+      let root = this
+      setTimeout(() => {
+        root.dagsStore.page = page
+      }, 100)
     },
     save_tab(index) {
       this.dagsStore.template_save(index)
@@ -533,12 +611,16 @@ export default {
     }
   },
   watch: {
+    view_mode(val) {
+      // this.$refs.flow.setInteractive(true)
+    },
     tab(val) {
       this.dagsStore.select_node = null
       // Fit View
       // zoom out
       setTimeout(this.$refs.flow.fitView, 200)
-      // this.$refs.flow.zoom
+      setTimeout(this.$refs.flow.zoomOut, 250)
+      setTimeout(this.$refs.flow.zoomOut, 350)
     },
     selectTPL: {
       handler: function (val) {
@@ -631,7 +713,6 @@ export default {
 }
 
 #app {
-  text-transform: uppercase;
   font-family: 'JetBrains Mono', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -808,6 +889,7 @@ aside {
 
   & > label {
     margin: 0;
+    text-transform: uppercase;
     display: inline-block;
     padding: 10px 20px;
     cursor: pointer;
@@ -859,6 +941,11 @@ aside button {
   &:hover {
     background: #e0e0e0;
   }
+}
+
+.inline-checkbox {
+  padding: 0;
+  margin: 0;
 }
 
 </style>
