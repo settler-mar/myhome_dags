@@ -21,6 +21,20 @@ services:
       - TZ=Europe/Kiev
     devices:
       - /dev/ttyUSB0:/dev/ttyACM0
+  mysql:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: server
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ../store/mysql_data:/var/lib/mysql
+    networks:
+      - cedalo-platform
 networks:
   cedalo-platform:
     name: cedalo-platform
