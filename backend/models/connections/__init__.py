@@ -38,6 +38,7 @@ class Connectors(SingletonClass):
     self.connectors_class[name] = connector_class
 
   def init_connectors(self):
+    print('Connectors class initialized from DB')
     db = db_session()
     items = db.query(DbConnections).all()
     for item in items:
@@ -47,8 +48,11 @@ class Connectors(SingletonClass):
                          key not in ['created_by', 'updated_by', 'created_at', 'updated_at', 'type']}
         try:
           self.connectors[item.id] = self.connectors_class[item.type](**module_params)
+          print(f"Connector {item.type} ({item.id}) created with params: {module_params}")
         except Exception as e:
           log_print(f"Error while creating connector {item.type}")
+      else:
+        log_print(f"Connector {item.type} not found in connectors_class")
 
   def start_connectors(self):
     for connector in self.connectors.values():
@@ -70,7 +74,7 @@ def init_connectors(app, add_routes: bool = True):
     if file.endswith('.py'):
       log_print(f"Loading connector from file: {file[:-3]}")
       name = file[:-3]
-      class_name = name.capitalize() + 'Class'
+      class_name = ''.join([n.capitalize() for n in name.split('_')]) + 'Class'
       module = __import__(f"{__name__}.{name}", fromlist=[class_name, 'add_routes'])
       if not hasattr(module, class_name):
         log_print(f"Class {class_name} not found in {name}")

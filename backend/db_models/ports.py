@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
 from utils.auth import pwd_context, RoleChecker, CurrentUser
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.mutable import MutableDict
 from db_models.common.json import Json
 from db_models.common.list import List
 from sqlalchemy.ext.declarative import declared_attr
@@ -20,7 +21,7 @@ class Ports(BaseModelDB):
   _can_update = 'root'
   _can_get_structure = 'admin'
 
-  id = Column(Integer, primary_key=True, index=True)
+  id = Column(Integer, primary_key=True, index=True, autoincrement=True)
   code = Column(String(100))
   name = Column(String(100), index=True)
   label = Column(String(100))
@@ -29,7 +30,8 @@ class Ports(BaseModelDB):
   mode = Column(String(20))
   type = Column(String(20))
   unit = Column(String(20))
-  values_variant = Column(List)
+  groups_name = Column(String(100))
+  values_variant = Column(MutableDict.as_mutable(List))
 
   @declared_attr
   def device_id(cls):

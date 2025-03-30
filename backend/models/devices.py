@@ -234,13 +234,13 @@ class Devices(SingletonClass):
     self.ports[port['id']] = self.devices[port['device_id']].add_port(port)
 
   def add_device(self, item):
-    self.devices[item.id] = Device(self.app,
-                                   Connectors().connectors[item.connection_id],
-                                   {key: value for key, value in item.__dict__.items()
-                                    if not key.startswith('_')})
-    self.devices_names[item.name] = item.id
-    if hasattr(self.devices[item.id], 'add_device'):
-      Connectors().connectors[item.connection_id].add_device(self.devices[item.id])
+    self.devices[item['id']] = Device(self.app,
+                                      Connectors().connectors[item['connection_id']],
+                                      {key: value for key, value in item.items()
+                                       if not key.startswith('_')})
+    self.devices_names[item['name']] = item['id']
+    if hasattr(self.devices[item['id']], 'add_device'):
+      Connectors().connectors[item.connection_id].add_device(self.devices[item['id']])
 
   def init_device(self):
     self.devices = {}
@@ -249,7 +249,7 @@ class Devices(SingletonClass):
     connectors = Connectors().connectors
     for item in items:
       if item.connection_id in connectors:
-        self.add_device(Device(self.app, connectors[item.connection_id], item.__dict__))
+        self.add_device(item.__dict__)
       else:
         print(f"Device {item.name}({item.id}) not found in devices_class or connection_id not found in Connectors")
 
