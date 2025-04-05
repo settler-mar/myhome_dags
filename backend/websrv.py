@@ -16,6 +16,7 @@ from utils.configs import config
 from models.connections import init_connectors
 from models.devices import devices_init
 
+from utils.google_connector import GoogleConnector
 # from init import init
 
 PORT = 3000
@@ -120,7 +121,7 @@ def join_dist():
     # The build directory does not exist
     print("No build directory found. Running in development mode.")
 
-
+GoogleConnector(False)
 join_dist()
 
 print("\nRunning FastAPI app...")

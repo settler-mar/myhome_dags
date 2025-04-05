@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
 from utils.auth import pwd_context, RoleChecker, CurrentUser
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.mutable import MutableDict
 from db_models.common.json import Json
 from sqlalchemy.ext.declarative import declared_attr
 
@@ -19,14 +20,14 @@ class Devices(BaseModelDB):
   _can_update = 'root'
   _can_get_structure = 'admin'
 
-  id = Column(Integer, primary_key=True, index=True)
+  id = Column(Integer, primary_key=True, index=True, autoincrement=True)
   code = Column(String(100), unique=True, index=True)
   name = Column(String(100), unique=True, index=True)
   model = Column(String(100))
   vendor = Column(String(100))
   description = Column(String(255))
   type = Column(String(20))
-  params = Column(Json)
+  params = Column(MutableDict.as_mutable(Json))
 
   @declared_attr
   def connection_id(cls):
@@ -34,7 +35,7 @@ class Devices(BaseModelDB):
 
   @declared_attr
   def location_id(cls):
-    return Column(Integer, ForeignKey('locations.id'))
+    return Column(Integer, ForeignKey('locations.id'), nullable=True)
 
   class CreateSchema(BaseModel):
     name: str

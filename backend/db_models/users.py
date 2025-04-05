@@ -17,7 +17,7 @@ class User(BaseModelDB):
   _can_update = 'root'
   _can_get_structure = 'admin'
 
-  id = Column(Integer, primary_key=True, index=True)
+  id = Column(Integer, primary_key=True, index=True, autoincrement=True)
   username = Column(String(20), unique=True, index=True)
   password = Column(PasswordHash)
   full_name = Column(String(100))

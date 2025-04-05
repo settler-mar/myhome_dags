@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
 from utils.auth import pwd_context, RoleChecker, CurrentUser
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.mutable import MutableDict
 from db_models.common.json import Json
 
 
@@ -18,7 +19,7 @@ class Locations(BaseModelDB):
   _can_update = 'root'
   _can_get_structure = 'admin'
 
-  id = Column(Integer, primary_key=True, index=True)
+  id = Column(Integer, primary_key=True, index=True, autoincrement=True)
   name = Column(String(50), unique=True, index=True)
   color = Column(String(20))
   description = Column(String(255))
