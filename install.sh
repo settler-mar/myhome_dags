@@ -31,39 +31,39 @@ sudo apt-get install docker-compose -y
 
 sudo apt install openjdk-11-jre -y
 
-cd /tmp
-wget http://archive.apache.org/dist/activemq/5.16.3/apache-activemq-5.16.3-bin.tar.gz
-sudo tar -xvzf apache-activemq-5.16.3-bin.tar.gz
-sudo mkdir /opt/activemq
-sudo mv apache-activemq-5.16.3/* /opt/activemq
-sudo addgroup --quiet --system activemq
-sudo adduser --quiet --system --ingroup activemq --no-create-home --disabled-password activemq
-sudo chown -R activemq:activemq /opt/activemq
-
-#create /etc/systemd/system/activemq.service
-sudo cat <<EOF > /tmp/activemq.service
-[Unit]
- Description=Apache ActiveMQ
- After=network.target
- [Service]
- Type=forking
- User=activemq
- Group=activemq
-
- ExecStart=/opt/activemq/bin/activemq start
- ExecStop=/opt/activemq/bin/activemq stop
-
- [Install]
- WantedBy=multi-user.target
-EOF
-sudo mv /tmp/activemq.service /etc/systemd/system/activemq.service
-sudo update-rc.d activemq defaults
-# replace 127.0.0.1 to 0.0.0.0 in /opt/activemq/conf/jetty.xml
-sudo awk '{gsub(/127.0.0.1/,"0.0.0.0")}1' /opt/activemq/conf/jetty.xml > /tmp/jetty.xml
-sudo mv /tmp/jetty.xml /opt/activemq/conf/jetty.xml
-sudo systemctl daemon-reload
-sudo systemctl start activemq
-sudo systemctl enable activemq
+#cd /tmp
+#wget http://archive.apache.org/dist/activemq/5.16.3/apache-activemq-5.16.3-bin.tar.gz
+#sudo tar -xvzf apache-activemq-5.16.3-bin.tar.gz
+#sudo mkdir /opt/activemq
+#sudo mv apache-activemq-5.16.3/* /opt/activemq
+#sudo addgroup --quiet --system activemq
+#sudo adduser --quiet --system --ingroup activemq --no-create-home --disabled-password activemq
+#sudo chown -R activemq:activemq /opt/activemq
+#
+##create /etc/systemd/system/activemq.service
+#sudo cat <<EOF > /tmp/activemq.service
+#[Unit]
+# Description=Apache ActiveMQ
+# After=network.target
+# [Service]
+# Type=forking
+# User=activemq
+# Group=activemq
+#
+# ExecStart=/opt/activemq/bin/activemq start
+# ExecStop=/opt/activemq/bin/activemq stop
+#
+# [Install]
+# WantedBy=multi-user.target
+#EOF
+#sudo mv /tmp/activemq.service /etc/systemd/system/activemq.service
+#sudo update-rc.d activemq defaults
+## replace 127.0.0.1 to 0.0.0.0 in /opt/activemq/conf/jetty.xml
+#sudo awk '{gsub(/127.0.0.1/,"0.0.0.0")}1' /opt/activemq/conf/jetty.xml > /tmp/jetty.xml
+#sudo mv /tmp/jetty.xml /opt/activemq/conf/jetty.xml
+#sudo systemctl daemon-reload
+#sudo systemctl start activemq
+#sudo systemctl enable activemq
 
 # run run.sh from current directory as service
 #sudo cat <<EOF > /tmp/server_app.service
