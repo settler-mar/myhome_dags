@@ -18,6 +18,7 @@ from models.devices import devices_init
 
 from utils.google_connector import GoogleConnector
 # from init import init
+from utils.logs import init_routes as init_logs
 
 PORT = 3000
 
@@ -50,6 +51,7 @@ def init_dags(add_routes=True):
 
 
 init_dags()
+init_logs(app)
 
 
 # nest_asyncio.apply()

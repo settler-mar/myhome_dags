@@ -152,7 +152,7 @@ class MyHomeClass:
   def __init__(self, **kwargs):
     self._id = kwargs.get('id', None)
 
-    self.sheet = kwargs.get('params', {})['gsheet']
+    self.sheet = kwargs.get('params', {}).get('gsheet')
 
     self._save_config_hour = kwargs.get('params', {}).get('save_config_hour', self._save_config_hour)
     self._save_logs_period = kwargs.get('params', {}).get('save_logs_period', self._save_logs_period)
@@ -427,6 +427,6 @@ def add_routes(app):
     db_device.params['save_logs'] = any(el for el in values if el.get('title') == "LOGS")
     db.commit()
     db.refresh(db_device)
-    Devices().add_device(item)
+    Devices().add_device(db_device.__dict__)
 
     return {"status": "ok", "values": values, "info": info, 'current_user': current_user}, 200

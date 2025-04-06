@@ -1,4 +1,3 @@
-version: "3.6"
 services:
   zigbee2mqtt:
     container_name: zigbee2mqtt
@@ -17,6 +16,9 @@ services:
     container_name: app_server
     restart: always
     image: server
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
     build:
       context: ../
       dockerfile: Dockerfile
@@ -26,11 +28,13 @@ services:
       - ../backend:/app/backend
       - ../frontend/dist:/app/dist
       - ../store:/app/store
-    networks:
-      - cedalo-platform
+    network_mode: host
+    depends_on:
+      - mysql
   mysql:
     image: mysql:latest
     restart: always
+    container_name: mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: server
@@ -41,38 +45,9 @@ services:
     volumes:
       - ../store/mysql_data:/var/lib/mysql
     networks:
-      - cedalo-platform
-  activemq:
-    image: hemersonrafael/activemq:arm64v8-5.16.5
-    ports:
-      # mqtt
-      - "1883:1883"
-      # amqp
-      - "5672:5672"
-      # ui
-      - "8161:8161"
-      # stomp
-      - "61613:61613"
-      # ws
-      - "61614:61614"
-      # jms
-      - "61616:61616"
-    environment:
-      ACTIVEMQ_REMOVE_DEFAULT_ACCOUNT: "false"
-      ACTIVEMQ_ADMIN_LOGIN: admin
-      ACTIVEMQ_ADMIN_PASSWORD: password
-      ACTIVEMQ_WRITE_LOGIN: write
-      ACTIVEMQ_WRITE_PASSWORD: password
-      ACTIVEMQ_READ_LOGIN: read
-      ACTIVEMQ_READ_PASSWORD: password
-      ACTIVEMQ_JMX_LOGIN: jmx
-      ACTIVEMQ_JMX_PASSWORD: password
-      ACTIVEMQ_STATIC_TOPICS: static-topic-1;static-topic-2
-      ACTIVEMQ_STATIC_QUEUES: static-queue-1;static-queue-2
-      ACTIVEMQ_ENABLED_SCHEDULER: "true"
-      ACTIVEMQ_MIN_MEMORY: 512
-      ACTIVEMQ_MAX_MEMORY: 2048
+      - server-net
+
 networks:
-  cedalo-platform:
-    name: cedalo-platform
+  server-net:
+    name: server-net
     driver: bridge

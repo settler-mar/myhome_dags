@@ -30,3 +30,4 @@ store/mysql_data/
 store/backup/
 store/google_credentials.json
 store/google_token.json
+store/logs/

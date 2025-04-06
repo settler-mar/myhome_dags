@@ -10,9 +10,11 @@ from db_models.ports import Ports as DbPorts
 from models.connections import Connectors
 from models.devices import Devices
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from utils.logs import log_print
 from utils.socket_utils import connection_manager
+from time import sleep
+from queue import Queue, Empty
 
 
 def collect_port(port, device_id, mode) -> DbPorts:
@@ -48,6 +50,7 @@ class Zigbee2mqttClass:
   network: dict = {}
   version: str = ''
   values = {}
+  last_msg_time: datetime = None
 
   def __init__(self, **kwargs):
     _id = kwargs.get('id', None)
@@ -63,14 +66,53 @@ class Zigbee2mqttClass:
     self.mqttc.on_connect = self.on_connect
     self.mqttc.on_message = self.on_message
 
-    self.massage_maps = {
+    self.message_maps = {
       'bridge': self.bridge_message,
     }
+
+    self.publish_queue = Queue()
+    self.start_publisher()
+
+    self.start_ping_loop()
+
+  def start_publisher(self):
+    def publisher_loop():
+      while True:
+        try:
+          topic, message = self.publish_queue.get(timeout=1)
+          if self._status == 'connected':
+            self.mqttc.publish(f"{self.base_topic}/{topic}", json.dumps(message))
+          else:
+            # повторим позже
+            self.publish_queue.put((topic, message))
+            sleep(1)
+        except Empty:
+          continue
+        except Exception as e:
+          log_print(f"[zigbee2mqtt_MQTT_MQTT] Publish error: {e}")
+
+    threading.Thread(target=publisher_loop, daemon=True).start()
+
+  def start_ping_loop(self):
+    self.last_msg_time = datetime.now()
+
+    def ping_loop():
+      while True:
+        if self._status == 'connected':
+          if self.last_msg_time + timedelta(seconds=30) < datetime.now():
+            self.push_message('bridge/ping', {}, queue=False)
+          if self.last_msg_time + timedelta(seconds=60) < datetime.now():
+            self._status = 'disconnected'
+            self.mqttc.loop_stop()
+            self.mqttc.disconnect()
+            self.mqttc.reconnect()
+        sleep(30)
+
+    threading.Thread(target=ping_loop, daemon=True).start()
 
   def start(self):
     log_print('zigbee2MqttClass start', id(self))
     self.mqttc.connect(self.connect_params['host'], self.connect_params['port'], 60)
-    self.mqttc.subscribe(f"{self.base_topic}/#")
     self.mqttc.loop_start()
 
   def __del__(self):
@@ -91,8 +133,14 @@ class Zigbee2mqttClass:
       return
     self.push_message(f'{device_id}/get', params)
 
-  def push_message(self, topic: str, message: dict):
-    self.mqttc.publish(f"{self.base_topic}/{topic}", json.dumps(message))
+  def push_message(self, topic: str, message: dict, queue: bool = True):
+    if queue:
+      self.publish_queue.put((topic, message))
+    elif self._status == 'connected':
+      try:
+        self.mqttc.publish(f"{self.base_topic}/{topic}", json.dumps(message))
+      except Exception as e:
+        log_print(f"[zigbee2mqtt_MQTT] Publish error on topic {topic}: {e}")
 
   def get_status(self):
     return self._status
@@ -118,12 +166,38 @@ class Zigbee2mqttClass:
             'version': self.version}
 
   def on_connect(self, mqttc, obj, flags, reason_code):
-    self._status = "connected" if self._status == 'disconnected' else self._status
+    if reason_code == 0:
+      self._status = "connected"
+      log_print(f"[zigbee2mqtt_MQTT] Connected to {self.connect_params['host']}:{self.connect_params['port']}")
+      mqttc.subscribe(f"{self.base_topic}/#")
+      log_print(f"[zigbee2mqtt_MQTT] Subscribed to {self.base_topic}/#")
+    else:
+      log_print(f"[zigbee2mqtt_MQTT] Connection failed: {reason_code}")
+      self.reconnect()
 
   def on_disconnect(self, mqttc, obj, rc):
     self._status = "disconnected"
+    log_print(f"[zigbee2mqtt_MQTT] Disconnected with code {rc}")
+    if rc != 0:
+      log_print("[zigbee2mqtt_MQTT] Unexpected disconnect. Trying to reconnect...")
+      self.reconnect()
+
+  def reconnect(self):
+    def _reconnect():
+      while self._status != "connected":
+        try:
+          self.mqttc.reconnect()
+          log_print("[zigbee2mqtt_MQTT] Reconnected successfully")
+          break
+        except Exception as e:
+          log_print(f"[zigbee2mqtt_MQTT] Reconnect failed: {e}")
+          sleep(5)
+
+    threading.Thread(target=_reconnect, daemon=True).start()
 
   def on_message(self, mqttc, obj, msg):
+    self.last_msg_time = datetime.now()
+
     topic = msg.topic[len(self.base_topic) + 1:]
     try:
       message = json.loads(msg.payload.decode())
@@ -131,8 +205,8 @@ class Zigbee2mqttClass:
       log_print('msg:', topic, msg.payload.decode())
       return
     parts = topic.split('/')
-    if parts[0] in self.massage_maps:
-      self.massage_maps[parts[0]]('/'.join(topic.split('/')[1:]), message)
+    if parts[0] in self.message_maps:
+      self.message_maps[parts[0]]('/'.join(topic.split('/')[1:]), message)
       return
 
     if parts[0] in self._devices and len(parts) == 1:
@@ -153,6 +227,9 @@ class Zigbee2mqttClass:
         self._devices[parts[0]].income_value(key, value)
 
   def bridge_message(self, path, message):
+    if path == 'pong':
+      log_print('[zigbee2mqtt_MQTT] Pong received')
+
     if path == 'state' and 'state' in message:
       self._status = message['state']
       return
@@ -253,7 +330,7 @@ def add_routes(app):
     if not zigbee2mqtt:
       return {"status": 'error', "message": 'Connector not found'}
 
-    if not device_id in zigbee2mqtt._devices and device_id.isdigit():
+    if device_id not in zigbee2mqtt._devices and device_id.isdigit():
       device_id = int(device_id)
       for key, device in zigbee2mqtt._devices.items():
         if device.id == device_id:

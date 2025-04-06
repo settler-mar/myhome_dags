@@ -31,7 +31,7 @@ class Ports(BaseModelDB):
   type = Column(String(20))
   unit = Column(String(20))
   groups_name = Column(String(100))
-  values_variant = Column(MutableDict.as_mutable(List))
+  values_variant = Column(List)
 
   @declared_attr
   def device_id(cls):
