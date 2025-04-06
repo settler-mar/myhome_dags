@@ -64,8 +64,12 @@ while read -r status file; do
             cp "$TMP_DIR/$file" "$CURRENT_DIR/$file"
             ;;
         "??")
-            echo "  - del: $file" | tee -a "$LOG_FILE"
-            sudo rm -rf "$CURRENT_DIR/$file"
+            if [[ $file == store/* ]]; then
+                echo "   - skip (del): $file" | tee -a "$LOG_FILE"
+            else
+              echo "  - del: $file" | tee -a "$LOG_FILE"
+              sudo rm -rf "$CURRENT_DIR/$file"
+            fi
             ;;
     esac
     if [[ $file == "frontend"* ]]; then
