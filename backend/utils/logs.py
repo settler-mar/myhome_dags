@@ -2,6 +2,8 @@ import os
 import inspect
 import asyncio
 from datetime import datetime, timedelta
+from fastapi import Depends
+from utils.auth import RoleChecker
 from typing import List
 
 LOG_DIR = os.path.abspath('../store/logs')
@@ -27,24 +29,24 @@ def log_print(*msg):
 
   print(line)
 
-  # Путь к папке логов без log.txt
-  log_folder = os.path.join(
+  # Формируем путь к hourly-логу
+  log_path = os.path.join(
     LOG_DIR,
-    timestamp.strftime('%Y/%m/%d/%H')
+    timestamp.strftime('%Y/%m/%d')
   )
-  os.makedirs(log_folder, exist_ok=True)
+  os.makedirs(log_path, exist_ok=True)
 
-  # Имя файла = timestamp в миллисекундах
-  file_name = f"{int(timestamp.timestamp() * 1000)}.log"
-  path = os.path.join(log_folder, file_name)
-  with open(path, 'w', encoding='utf-8') as f:
+  file_name = f"{timestamp.strftime('%H')}.log"
+  full_path = os.path.join(log_path, file_name)
+
+  with open(full_path, 'a', encoding='utf-8') as f:
     f.write(line + '\n')
 
 
 def get_logs(year=None, month=None, day=None, hour=None):
   logs = []
 
-  # Если ничего не указано — читаем последний лог
+  # Вернуть последний лог, если параметры не заданы
   if not all([year, month, day, hour]):
     for root, dirs, files in os.walk(LOG_DIR, topdown=False):
       for name in sorted(files, reverse=True):
@@ -53,23 +55,20 @@ def get_logs(year=None, month=None, day=None, hour=None):
           with open(path, 'r', encoding='utf-8') as f:
             return f.readlines()
 
-  # Чтение всех логов за указанный час
   try:
-    log_folder = os.path.join(
+    path = os.path.join(
       LOG_DIR,
       f"{year:04d}",
       f"{month:02d}",
       f"{day:02d}",
-      f"{hour:02d}",
+      f"{hour:02d}.log"
     )
-    if os.path.exists(log_folder):
-      for name in sorted(os.listdir(log_folder)):
-        if name.endswith('.log'):
-          path = os.path.join(log_folder, name)
-          with open(path, 'r', encoding='utf-8') as f:
-            logs.extend(f.readlines())
+    if os.path.exists(path):
+      with open(path, 'r', encoding='utf-8') as f:
+        logs = f.readlines()
   except Exception as e:
     logs = [f"Error reading logs: {e}"]
+
   return logs
 
 
@@ -87,7 +86,7 @@ def clear_logs():
           log_print(f"Deleted: {path}")
       except Exception as e:
         log_print(f"Error deleting {path}: {e}")
-    # Удаление пустых папок
+    # Удаление пустых директорий
     if not os.listdir(root):
       try:
         os.rmdir(root)
@@ -102,9 +101,7 @@ async def schedule_auto_clear_logs():
 
 
 def init_routes(app):
-  from fastapi import Depends
-  from utils.auth import RoleChecker
-  clear_logs()  # первая очистка при запуске
+  clear_logs()  # первая очистка
 
   @app.on_event("startup")
   async def start_log_cleaner():

@@ -58,7 +58,9 @@ class Zigbee2mqttClass:
     self.connectors_list[_id] = self
     log_print('zigbee2MqttClass initialized', id(self), kwargs)
     if 'params' in kwargs:
-      self.base_topic = kwargs['params']['base_topic']
+      self.base_topic = kwargs['params'].get('base_topic', 'zigbee2mqtt')
+      if self.base_topic[-1] == '/':
+        self.base_topic = self.base_topic[:-1]
 
     self.connect_params = kwargs
     self.mqttc = mqtt.Client(f'server_client_zigbee2mqtt_{id(self)}')
