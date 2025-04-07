@@ -2,8 +2,6 @@ import os
 import inspect
 import asyncio
 from datetime import datetime, timedelta
-from fastapi import Depends
-from utils.auth import RoleChecker
 from typing import List
 
 LOG_DIR = os.path.abspath('../store/logs')
@@ -101,6 +99,9 @@ async def schedule_auto_clear_logs():
 
 
 def init_routes(app):
+  from fastapi import Depends
+  from utils.auth import RoleChecker
+
   clear_logs()  # первая очистка
 
   @app.on_event("startup")
