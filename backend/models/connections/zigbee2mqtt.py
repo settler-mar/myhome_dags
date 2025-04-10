@@ -268,7 +268,7 @@ class Zigbee2mqttClass:
           db.commit()
 
           item = db.query(DbDevices).filter(DbDevices.id == db_device.id).first()
-          Devices().add_device(item)
+          Devices().add_device(item.__dict__)
 
           ports = []
           # save ports

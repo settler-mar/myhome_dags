@@ -1,12 +1,13 @@
 import yaml
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 import random
 import string
 import os
 
 default_config = {
+  'port':3000,
   'auth': {
     'algorithm': 'HS256',
     'expire_minutes': 24 * 60 * 60 * 60,
@@ -26,6 +27,11 @@ default_config = {
     'echo': False,
     'echo_pool': False,
     'check_same_thread': True
+  },
+  'error_logger': {
+    'enabled': True,
+    'ttl_days': 7,
+    'max_logs_per_group': 100,
   }
 }
 
@@ -89,6 +95,7 @@ class AppConfig:
     return f"AppConfig({self._config})"
 
   def create_routes(self, app: FastAPI):
+    from fastapi import Depends
     from utils.auth import RoleChecker
 
     @app.get(f"/api/config", tags=["config"], response_model=dict, dependencies=[Depends(RoleChecker('admin'))])

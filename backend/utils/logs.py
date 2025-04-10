@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from typing import List
 
 LOG_DIR = os.path.abspath('../store/logs')
+if not os.path.exists(LOG_DIR):
+  os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def log_print(*msg):
@@ -12,6 +14,8 @@ def log_print(*msg):
   frame = inspect.stack()[2] if su else inspect.stack()[1]
   clicksource = frame.function
   filename = frame.filename.split('/')[-1]
+  if filename == '__init__.py':
+    filename = frame.filename.split('/')[-2] + '/'
   lineno = frame.lineno
 
   timestamp = datetime.now()
@@ -98,6 +102,53 @@ async def schedule_auto_clear_logs():
     clear_logs()
 
 
+def get_log_tree_partial(year=None, month=None, day=None):
+  results = []
+
+  base_path = os.path.join(LOG_DIR)
+  if year:
+    base_path = os.path.join(base_path, f"{year:04d}")
+  if month:
+    base_path = os.path.join(base_path, f"{month:02d}")
+  if day:
+    base_path = os.path.join(base_path, f"{day:02d}")
+
+  if not os.path.exists(base_path):
+    return []
+
+  if not year:
+    # Возвращаем список лет
+    return sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
+
+  if year and not month:
+    return sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
+
+  if year and month and not day:
+    return sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
+
+  if year and month and day:
+    for name in sorted(os.listdir(base_path)):
+      if name.endswith('.log') and len(name) == 6:
+        hour = name[:2]
+        path = os.path.join(base_path, name)
+
+        try:
+          size = os.path.getsize(path)
+          with open(path, 'r', encoding='utf-8') as f:
+            lines = sum(1 for _ in f)
+        except Exception:
+          size = 0
+          lines = 0
+
+        results.append({
+          'hour': hour,
+          'size': size,
+          'lines': lines
+        })
+
+  return results
+
+
 def init_routes(app):
   from fastapi import Depends
   from utils.auth import RoleChecker
@@ -108,21 +159,42 @@ def init_routes(app):
   async def start_log_cleaner():
     asyncio.create_task(schedule_auto_clear_logs())
 
-  @app.get('/logs/clear',
-           response_model=List[dict],
+  @app.get('/api/logs/clear',
            tags=["live/logs"],
            dependencies=[Depends(RoleChecker('admin'))])
   async def clear_logs_route():
     clear_logs()
     return {'status_code': 200}
 
-  @app.get('/logs/{year}/{month}/{day}/{hour}',
-           response_model=List[dict],
+  @app.get('/api/logs/get/{year}/{month}/{day}/{hour}',
            tags=["live/logs"],
            dependencies=[Depends(RoleChecker('admin'))])
-  @app.get('/logs/last',
-           response_model=List[dict],
+  @app.get('/api/logs/last',
            tags=["live/logs"],
            dependencies=[Depends(RoleChecker('admin'))])
   async def get_logs_route(year: int = None, month: int = None, day: int = None, hour: int = None):
     return get_logs(year, month, day, hour)
+
+  @app.get('/api/logs/tree',
+           tags=["live/logs"],
+           dependencies=[Depends(RoleChecker('admin'))])
+  async def tree_root():
+    return get_log_tree_partial()
+
+  @app.get('/api/logs/tree/{year}',
+           tags=["live/logs"],
+           dependencies=[Depends(RoleChecker('admin'))])
+  async def tree_year(year: int):
+    return get_log_tree_partial(year)
+
+  @app.get('/api/logs/tree/{year}/{month}',
+           tags=["live/logs"],
+           dependencies=[Depends(RoleChecker('admin'))])
+  async def tree_month(year: int, month: int):
+    return get_log_tree_partial(year, month)
+
+  @app.get('/api/logs/tree/{year}/{month}/{day}',
+           tags=["live/logs"],
+           dependencies=[Depends(RoleChecker('admin'))])
+  async def tree_day(year: int, month: int, day: int):
+    return get_log_tree_partial(year, month, day)

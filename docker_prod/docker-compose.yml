@@ -16,6 +16,9 @@ services:
     container_name: app_server
     restart: always
     image: server
+    environment:
+      - TZ=Europe/Kiev
+      - NODE_ENV=production
     cap_add:
       - NET_RAW
       - NET_ADMIN
@@ -36,6 +39,7 @@ services:
     restart: always
     container_name: mysql
     environment:
+      TZ: Europe/Kiev
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: server
       MYSQL_USER: user

@@ -13,6 +13,7 @@ from utils.db_utils import init_db
 import nest_asyncio
 from utils.auth import create_auth_route
 from utils.configs import config
+from utils.error_logger import add_route as error_logger_route, init_error_handling
 from models.connections import init_connectors
 from models.devices import devices_init
 
@@ -20,7 +21,7 @@ from utils.google_connector import GoogleConnector
 # from init import init
 from utils.logs import init_routes as init_logs
 
-PORT = 3000
+PORT = config['port'] or 3000
 
 # Initialize the FastAPI app
 app = FastAPI()
@@ -52,7 +53,8 @@ def init_dags(add_routes=True):
 
 init_dags()
 init_logs(app)
-
+error_logger_route(app)
+init_error_handling()
 
 # nest_asyncio.apply()
 
@@ -122,6 +124,7 @@ def join_dist():
   except RuntimeError:
     # The build directory does not exist
     print("No build directory found. Running in development mode.")
+
 
 GoogleConnector(False)
 join_dist()
