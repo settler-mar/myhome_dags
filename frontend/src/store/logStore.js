@@ -10,6 +10,66 @@ export const useLogStore = defineStore('logStore', {
   }),
 
   actions: {
+    async reloadTree() {
+      this.loading = true
+      this.error = null
+
+      try {
+        const years = Object.keys(this.tree)
+        for (const year of years) {
+          await this.fetchTree([year])
+          const months = Object.keys(this.tree[year])
+          for (const month of months) {
+            await this.fetchTree([year, month])
+            const days = Object.keys(this.tree[year][month])
+            for (const day of days) {
+              await this.fetchTree([year, month, day])
+            }
+          }
+        }
+      } catch (err) {
+        this.error = 'Ошибка при обновлении дерева'
+        console.error(err)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadFullTree() {
+      this.loading = true
+      this.error = null
+      this.tree = {}
+
+      try {
+        const resYears = await secureFetch('/api/logs/tree')
+        const years = await resYears.json()
+
+        for (const year of years) {
+          this.tree[year] = {}
+          const resMonths = await secureFetch(`/api/logs/tree/${year}`)
+          const months = await resMonths.json()
+
+          for (const month of months) {
+            this.tree[year][month] = {}
+            const resDays = await secureFetch(`/api/logs/tree/${year}/${month}`)
+            const days = await resDays.json()
+
+            for (const day of days) {
+              const resHours = await secureFetch(`/api/logs/tree/${year}/${month}/${day}`)
+              const hours = await resHours.json()
+
+              this.tree[year][month][day] = hours
+            }
+          }
+        }
+      } catch (err) {
+        this.error = 'Ошибка при загрузке полного дерева'
+        console.error(err)
+      } finally {
+        this.loading = false
+      }
+    },
+
     async fetchTree(level = []) {
       this.loading = true
       this.error = null

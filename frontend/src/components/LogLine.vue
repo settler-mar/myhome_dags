@@ -3,9 +3,6 @@
     <td class="log_line">
       {{ log.lineNumber + 1 }}
     </td>
-    <td>
-      {{ log.is_filtred}}
-    </td>
     <td class="log_time">
       {{ log.time }}
     </td>
@@ -158,5 +155,35 @@ function formatValue(val) {
   padding: 5px;
   line-height: 1.2em;
   font-size: 0.8em;
+}
+
+.log_filtred.log_odd {
+  background-color: #95b1ea;
+}
+
+.log_filtred.log_even {
+  background-color: #d0e1ff;
+}
+
+
+.log_odd {
+  background-color: #f3f4f6;
+}
+
+.log_even {
+  background-color: #ffffff;
+}
+
+
+.log_line {
+  width: 50px;
+  text-align: right;
+  padding-right: 3px;
+  color: #333;
+  background-color: #fff8d6;
+}
+
+.log_data_line:hover {
+  background-color: #a5ffff;
 }
 </style>

@@ -2,24 +2,40 @@
   <div class="log-viewer">
     <!-- Слева — дерево -->
     <div class="log-tree">
-      <h2 class="text-lg font-semibold mb-2">📁 Лог-файлы</h2>
+      <h2 class="text-lg font-semibold mb-2">
+        📁 Лог-файлы
+        <v-btn icon @click="refreshTree" class="ml-2" density="compact" title="Обновить дерево">
+          <v-icon>mdi-refresh</v-icon>
+        </v-btn>
+        <v-btn icon @click="store.loadFullTree()" title="Загрузить всё дерево" density="compact">
+          <v-icon>mdi-folder-multiple</v-icon>
+        </v-btn>
+      </h2>
       <ul class="space-y-1 text-sm">
-        <li v-for="(months, year) in store.tree" :key="year">
+        <li v-for="year in Object.keys(store.tree).sort()" :key="year">
           <details :open="expanded[year]" @toggle="toggleExpand([year])">
-            <summary class="cursor-pointer font-semibold">📁 {{ year }}</summary>
+            <summary class="cursor-pointer font-semibold" :class="{ 'active-tree': isActiveLevel([year]) }">
+              📁 {{ year }}
+            </summary>
             <ul class="ml-4 space-y-1">
-              <li v-for="(days, month) in months" :key="month">
+              <li v-for="month in Object.keys(store.tree[year]).sort(numericSort)" :key="month">
                 <details :open="expanded[`${year}-${month}`]" @toggle="toggleExpand([year, month])">
-                  <summary class="cursor-pointer">📁 {{ month }}</summary>
+                  <summary class="cursor-pointer" :class="{ 'active-tree': isActiveLevel([year, month]) }">
+                    📁 {{ month }}
+                  </summary>
                   <ul class="ml-4 space-y-1">
-                    <li v-for="(hours, day) in days" :key="day">
+                    <li v-for="day in Object.keys(store.tree[year][month]).sort(numericSort)" :key="day">
                       <details :open="expanded[`${year}-${month}-${day}`]" @toggle="toggleExpand([year, month, day])">
-                        <summary class="cursor-pointer">📁 {{ day }}</summary>
+                        <summary class="cursor-pointer" :class="{ 'active-tree': isActiveLevel([year, month, day]) }">
+                          📁 {{ day }}
+                        </summary>
                         <ul class="ml-4 space-y-1">
-                          <li v-for="log in hours" :key="log.hour">
+                          <li v-for="log in store.tree[year][month][day].sort((a, b) => a.hour - b.hour)"
+                              :key="log.hour">
                             <button
                               @click="selectLog(year, month, day, log.hour)"
-                              class="text-blue-600 hover:underline text-sm"
+                              class="text-sm tree-log-button"
+                              :class="{ 'active-log-button': isActiveLevel([year, month, day, log.hour]) }"
                             >
                               🕒 {{ log.hour }}:00 ({{ log.lines }} строк)
                             </button>
@@ -40,7 +56,7 @@
     <div class="log-content">
       <div class="flex flex-wrap items-center justify-between mb-2 gap-2">
         <h2 class="text-lg font-semibold">
-          📄 Логи {{ hasFilters }}
+          📄 Логи
         </h2>
         <div class="text-sm text-gray-500" v-if="lastSelection">
           <span>Логи за {{ selectedLogTime }}</span>
@@ -158,7 +174,7 @@
 
       <!-- Таблица логов -->
       <table v-if="filteredLogs.length"
-             class="bg-white border rounded font-mono text-sm overflow-auto h-full w-full"
+             class="bg-white border rounded font-mono text-sm overflow-auto h-full w-full log_table"
              cellpadding="0" cellspacing="0"
       >
         <template v-for="(log, index) in filteredLogs" :key="log.lineNumber">
@@ -420,6 +436,11 @@ const hasFilters = computed(() => {
 })
 
 
+/* ——— Методы ——— */
+function refreshTree() {
+  store.reloadTree()
+}
+
 /* ——— Утилиты ——— */
 function getContol(index, dir) {
   if (index === 0 && dir < 0) return filteredLogs.value[index].lineNumber !== 0
@@ -439,6 +460,12 @@ function loadMore(dir, line_index) {
     if (withFiltering.value.find(log => log.lineNumber === line_index).is_filtred) break
     visibleIndexes.value.push(line_index)
   }
+}
+
+function isActiveLevel(level) {
+  if (!lastSelection.value) return false
+  const parts = [lastSelection.value.year, lastSelection.value.month, lastSelection.value.day, lastSelection.value.hour]
+  return level.every((val, idx) => String(val) === String(parts[idx]))
 }
 
 /* ——— Управление ——— */
@@ -493,6 +520,10 @@ function onJsonValueClick({key, value}) {
   })
 }
 
+function numericSort(a, b) {
+  return parseInt(a) - parseInt(b)
+}
+
 /* ——— Watchers ——— */
 watch(() => filters.filename, resetVisibleIndexes, {deep: true})
 watch(() => filters, resetVisibleIndexes, {deep: true})
@@ -539,43 +570,75 @@ onUnmounted(() => clearInterval(interval))
   text-align: center;
 }
 
-.log_odd {
-  background-color: #f3f4f6;
-}
-
-.log_even {
-  background-color: #ffffff;
-}
-
-.log_filtred.log_odd {
-  background-color: #95b1ea;
-}
-
-.log_filtred.log_even {
-  background-color: #d0e1ff;
-}
-
-.log_line {
-  width: 50px;
-  text-align: right;
-  padding-right: 3px;
-  color: #333;
-  background-color: #fff8d6;
-}
-
-.log_data_line:hover {
-  background-color: #a5ffff;
-}
-
-.log_su .dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  background-color: red;
-  border-radius: 50%;
-}
-
 .auto_update_switch {
   margin-bottom: -20px;
 }
+
+.log_table {
+  text-align: left;
+}
+
+.active-tree {
+  font-weight: bold;
+  color: #2c7be5;
+}
+
+.tree-log-button {
+  transition: color 0.2s ease;
+  background: transparent;
+}
+
+.tree-log-button:hover {
+  text-decoration: underline;
+  background-color: #e5f0ff;
+}
+
+.active-log-button {
+  color: #1d4ed8; /* blue-700 */
+  font-weight: 600;
+  background-color: #dbeafe; /* light-blue bg */
+}
+
+.log-tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1rem;
+  //border-left: 1px solid #ddd;
+  position: relative;
+}
+
+.log-tree li {
+  position: relative;
+  margin: 0;
+  padding: 0.2rem 0 0.2rem 0;
+  margin-left: -0.8rem;
+}
+
+.log-tree li::before {
+  content: '';
+  position: absolute;
+  left: -0.2rem;
+  top: .8rem;
+  width: 0.2rem;
+  height: 1px;
+  background-color: #ccc;
+}
+
+/* Вертикальная линия от родителя к последнему потомку */
+.log-tree ul li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.2rem;
+  width: 1px;
+  background-color: #ddd;
+  z-index: 0;
+}
+
+/* Обрезаем вертикальную линию у последнего элемента */
+.log-tree ul li:last-child::after {
+  height: .9rem;
+}
+
 </style>
