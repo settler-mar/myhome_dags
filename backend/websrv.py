@@ -14,6 +14,7 @@ import nest_asyncio
 from utils.auth import create_auth_route
 from utils.configs import config
 from utils.error_logger import add_route as error_logger_route, init_error_handling
+from utils.system import add_route as system_route
 from models.connections import init_connectors
 from models.devices import devices_init
 
@@ -55,6 +56,8 @@ init_dags()
 init_logs(app)
 error_logger_route(app)
 init_error_handling()
+system_route(app)
+
 
 # nest_asyncio.apply()
 

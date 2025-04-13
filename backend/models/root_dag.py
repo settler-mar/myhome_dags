@@ -36,9 +36,9 @@ class rootDag:
     def prettify(dag):
       # if isinstance(dag["id"], str) and dag["id"].split(':')[0] in ['pin', 'tpl']:
       #   dag["name"] = dag["id"].split(':')[0] + ':' + dag["name"]
+      allow_key = ['code', 'params', 'position', 'page', 'outputs', 'id', 'version', 'is_simple']
       if is_clean:
-        return {key: dag[key] for key in
-                ['code', 'params', 'position', 'page', 'outputs', 'id', 'version', 'is_simple']}
+        return {key: dag[key] for key in allow_key if key in dag}
       return dag
 
     items = self.dags or {}
