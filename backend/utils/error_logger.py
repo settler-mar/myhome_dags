@@ -15,7 +15,7 @@ from starlette.background import BackgroundTasks
 
 # 🔧 Конфигурация
 ENABLED = config['error_logger'].get('enabled', True)
-LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../store/error_logs"))
+LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../store/error_logs"))
 LOG_TTL_DAYS = config['error_logger'].get('ttl_days', 7)
 MAX_LOGS_PER_GROUP = config['error_logger'].get('max_logs_per_group', 100)
 

@@ -1,6 +1,13 @@
 # Vue Frontend
 FROM python:3.11.11 as build-stage
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && \
+    apt-get install -y curl && \
+    apt install -y --no-install-recommends
+
+RUN apt install iw -y
+
+RUN apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/backend
 COPY backend/ .

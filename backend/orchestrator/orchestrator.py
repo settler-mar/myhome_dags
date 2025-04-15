@@ -36,9 +36,23 @@ class Orchestrator(SingletonClass, rootDag):
       return
 
     log_print('Orchestrator loaded from file')
-    if os.path.exists('../store/orchestrator.json'):
-      with open('../store/orchestrator.json', 'r') as f:
-        asyncio.create_task(self.create_from_json(json.loads(f.read())))
+
+    def load_dags_from_file(file_name: str):
+      try:
+        if os.path.exists(f'../store/{file_name}'):
+          with open(f'../store/{file_name}', 'r') as f:
+            return json.loads(f.read())
+      except Exception as e:
+        log_print(f"Error loading DAGs from file {file_name}: {e}")
+      return None
+
+    dags_data = load_dags_from_file('orchestrator.json') or load_dags_from_file('orchestrator_bk.json')
+    if dags_data:
+      asyncio.create_task(self.create_from_json(dags_data))
+      with open('../store/orchestrator_bk.json', 'w') as f:
+        f.write(json.dumps(dags_data))
+    else:
+      log_print("No DAGs found in file, creating empty DAGs")
 
 
 @router.get("/orchestrator/save", tags=["dags"], dependencies=[Depends(RoleChecker('admin'))])

@@ -18,3 +18,5 @@ requests==2.32.3 # библиотека для работы с HTTP
 google-api-python-client # библиотека для работы с Google API
 google-auth-httplib2 # библиотека для работы с Google API
 google-auth-oauthlib # библиотека для работы с Google API
+psutil==7.0.0 # библиотека для работы с системной информацией
+docker==7.1.0 # библиотека для работы с Docker
