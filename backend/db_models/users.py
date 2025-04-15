@@ -25,7 +25,7 @@ class User(BaseModelDB):
   is_active = Column(Boolean, default=True)
   role = Column(String(20))
   tg_id = Column(Integer, unique=True, index=True)
-  otp = Column(String(100))
+  otp = Column(String(100), default=None)
   last_login = Column(DateTime, default=datetime.utcnow)
   login_count = Column(Integer, default=0)
 

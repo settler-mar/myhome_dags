@@ -40,6 +40,17 @@ let router = createRouter({
         },
       },
       {
+        path: '/configs/locations',
+        component: () => import('@/views/TablePage.vue'),
+        meta: {
+          requiresAuth: true,
+          showAppBar: true,
+          showInMenu: true,
+          title: 'Локации',
+          tableModel: 'locations',
+        },
+      },
+      {
         path: '/configs/errors/:groupId/:logFile?',
         component: () => import('@/pages/configs/errors.vue'),
         meta: {

@@ -141,7 +141,7 @@ class ConfigVersionManager:
 class MyHomeClass:
   type = 'myhome'
   connectors_list = {}
-  _status: str = "disconnected"
+  _status: str = None
   _devices: dict = {}
 
   _save_config_hour = 1
@@ -302,6 +302,13 @@ class MyHomeClass:
     self.stop_event.set()
     if self.thread.is_alive():
       self.thread.join()
+
+  def get_info(self):
+    return {
+      'status': self._status,
+      'type': 'myhome',
+      'device_count': len(self._devices),
+    }
 
   async def scan(self):
     client = SSDPClient()

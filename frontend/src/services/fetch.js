@@ -1,7 +1,7 @@
 import useMessageStore from "@/store/messages";
 import authStore from "@/store/auth";
 
-function secureFetch(url, {method, data, dataType = 'json', headers, secure = true} = {}) {
+function secureFetch(url, {method, data, body = null, dataType = 'json', headers, secure = true} = {}) {
   const MessageStore = useMessageStore();
 
   headers = headers || {
@@ -15,7 +15,7 @@ function secureFetch(url, {method, data, dataType = 'json', headers, secure = tr
   // new URLSearchParams(data) - dataType = 'url'
   // JSON.stringify(data) - dataType = 'json'
   // data - dataType = 'raw'
-  let body;
+  data = data || body;
   if (data) {
     switch (dataType) {
       case 'url':

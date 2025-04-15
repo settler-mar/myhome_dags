@@ -1,4 +1,7 @@
+from tkinter.scrolledtext import example
+
 from models.base_db_model import BaseModelDB
+from pydantic_core.core_schema import nullable_schema
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean, DateTime
 from pydantic import BaseModel
 from sqlalchemy import TypeDecorator, types
@@ -20,13 +23,7 @@ class Locations(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-  name = Column(String(50), unique=True, index=True)
+  name = Column(String(50), unique=True, index=True, nullable=False)
   color = Column(String(20))
   description = Column(String(255))
   icon = Column(String(100))
-
-  class CreateSchema(BaseModel):
-    name: str
-    color: str
-    description: str
-    icon: str

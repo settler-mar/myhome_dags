@@ -270,7 +270,7 @@ def devices_init(app, add_routes: bool = True):
              response_model=dict,
              dependencies=[Depends(RoleChecker('admin'))])
     def get_connections_list():
-      return {name: item.get_info() for name, item in devices.items()}
+      return {name: item.get_info() for name, item in devices.devices.items()}
 
     @app.post("/api/live/dag/{dag_id}/{port_name}/set",
               tags=["live/dags"],

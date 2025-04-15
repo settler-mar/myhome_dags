@@ -20,17 +20,10 @@ class Connections(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-  name = Column(String(100), unique=True, index=True)
-  type = Column(String(50))
+  name = Column(String(100), unique=True, index=True, nullable=False)
+  type = Column(String(50), nullable=False)
   host = Column(String(100))
   port = Column(Integer)
   username = Column(String(30))
   password = Column(String(50))
   params = Column(MutableDict.as_mutable(Json))
-
-  class CreateSchema(BaseModel):
-    name: str
-    host: str
-    type: str
-    password: str
-    params: dict

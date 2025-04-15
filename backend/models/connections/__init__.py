@@ -85,6 +85,22 @@ def init_connectors(app, add_routes: bool = True):
   connect.init_connectors()
 
   if add_routes:
+    @app.get("/api/connections_list",
+             tags=["connections"],
+             response_model=list,
+             dependencies=[Depends(RoleChecker('admin'))])
+    def get_connections_list():
+      return [
+        {
+          'code': name,
+          'name': connector.name if hasattr(connector, 'name') else connector.__name__,
+          'type': connector.type,
+          'params': connector.params if hasattr(connector, 'params') else {},
+          'description': connector.description if hasattr(connector, 'description') else None,
+        }
+        for name, connector in connect.connectors_class.items()
+      ]
+
     @app.get("/api/live/connections",
              tags=["live/connections"],
              response_model=dict,
