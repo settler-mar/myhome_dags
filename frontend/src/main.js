@@ -9,6 +9,13 @@ import {registerPlugins} from "@/plugins";
 
 // Components
 import App from "./App.vue";
+import mIcon from '@/components/mIcons.vue'
+
+// Styles
+const fontStyle = document.createElement('link')
+fontStyle.rel = 'stylesheet'
+fontStyle.href = '/api/fonts/style.css'
+document.head.appendChild(fontStyle)
 
 // Composables
 import {createApp} from "vue";
@@ -18,10 +25,11 @@ import {webSocketService} from "./services/websocket.js";
 
 const app = createApp(App);
 
+app.component('m-icon', mIcon)
 app.config.globalProperties.$websocket = webSocketService;
 
 app.config.errorHandler = function (err, vm, info) {
-   console.log('errorHandler', err, vm, info);
+  console.log('errorHandler', err, vm, info);
   // handle error
   // `info` is a Vue-specific error info, e.g. which lifecycle hook
   // the error was found in. Only available in 2.2.0+

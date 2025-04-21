@@ -39,20 +39,20 @@ class Connectors(SingletonClass):
 
   def init_connectors(self):
     print('Connectors class initialized from DB')
-    db = db_session()
-    items = db.query(DbConnections).all()
-    for item in items:
-      if item.type in self.connectors_class:
-        module_params = {key: value for key, value in item.__dict__.items()
-                         if not key.startswith('_') and
-                         key not in ['created_by', 'updated_by', 'created_at', 'updated_at', 'type']}
-        try:
-          self.connectors[item.id] = self.connectors_class[item.type](**module_params)
-          print(f"Connector {item.type} ({item.id}) created with params: {module_params}")
-        except Exception as e:
-          log_print(f"Error while creating connector {item.type}")
-      else:
-        log_print(f"Connector {item.type} not found in connectors_class")
+    with db_session() as db:
+      items = db.query(DbConnections).all()
+      for item in items:
+        if item.type in self.connectors_class:
+          module_params = {key: value for key, value in item.__dict__.items()
+                           if not key.startswith('_') and
+                           key not in ['created_by', 'updated_by', 'created_at', 'updated_at', 'type']}
+          try:
+            self.connectors[item.id] = self.connectors_class[item.type](**module_params)
+            print(f"Connector {item.type} ({item.id}) created with params: {module_params}")
+          except Exception as e:
+            log_print(f"Error while creating connector {item.type}")
+        else:
+          log_print(f"Connector {item.type} not found in connectors_class")
 
   def start_connectors(self):
     for connector in self.connectors.values():
@@ -96,7 +96,11 @@ def init_connectors(app, add_routes: bool = True):
           'name': connector.name if hasattr(connector, 'name') else connector.__name__,
           'type': connector.type,
           'params': connector.params if hasattr(connector, 'params') else {},
+          'devices_params': connector.devices_params if hasattr(connector, 'devices_params') else {},
           'description': connector.description if hasattr(connector, 'description') else None,
+          'icon': connector.icon if hasattr(connector, 'icon') else None,
+          'rules': connector.rules if hasattr(connector, 'rules') else None,
+          'actions': connector.actions if hasattr(connector, 'actions') else None,
         }
         for name, connector in connect.connectors_class.items()
       ]

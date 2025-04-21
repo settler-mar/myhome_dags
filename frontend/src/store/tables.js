@@ -1,5 +1,4 @@
 import {defineStore} from "pinia";
-import useDagsStore from "@/store/dags";
 import {secureFetch} from "@/services/fetch";
 import useMessageStore from "@/store/messages";
 
@@ -31,7 +30,7 @@ export const useTableStore = defineStore("tables", {
           const data = await secureFetch(`/api/${tableModel}/`)
           const data_data = await data.json();
           this.tables[tableModel].items = data_data;
-          messageStore.addMessage({type: 'info', text: "Данные успешно обновлены."});
+          messageStore.addMessage({type: 'info', text: `Данные таблицы ${tableModel} обновлены.`})
         } catch (e) {
           console.warn(e)
         }
@@ -75,7 +74,7 @@ export const useTableStore = defineStore("tables", {
         }
       } catch (e) {
         console.warn(e)
-        messageStore.addMessage({type: "error", text: "Ошибка при загрузке данных."});
+        messageStore.addMessage({type: "error", text: `Ошибка загрузки структуры таблицы ${tableModel}.`})
       }
     },
 
@@ -92,15 +91,18 @@ export const useTableStore = defineStore("tables", {
         }
       }
       try {
-        await secureFetch(url, {
+        const result = await secureFetch(url, {
           method,
           headers: {'Content-Type': 'application/json'},
           body: send_data,
+        }).catch(() => {
+          return false
         })
+        if (!result) return result
         await this.loadTableData(table)
         messageStore.addMessage({
           type: "info",
-          text: data.id ? "Запись успешно обновлена." : "Запись успешно создана."
+          text: data.id ? `Запись ${data.id} обновлена ${table}.` : `Запись добавлена в ${table}.`
         })
         return true
       } catch (e) {
@@ -115,10 +117,10 @@ export const useTableStore = defineStore("tables", {
           method: 'DELETE',
         })
         await this.loadTableData(table)
-        messageStore.addMessage({type: "info", text: "Запись удалена."})
+        messageStore.addMessage({type: "info", text: `Запись ${id} удалена из ${table}.`})
       } catch (e) {
         console.warn(e)
-        messageStore.addMessage({type: "error", text: "Ошибка при удалении записи."})
+        messageStore.addMessage({type: "error", text: `Ошибка удаления записи ${id} из ${table}.`})
       }
     },
   }

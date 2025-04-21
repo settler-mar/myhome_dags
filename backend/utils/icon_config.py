@@ -4,6 +4,7 @@ import subprocess
 from datetime import datetime
 from shutil import copyfile
 from xml.etree import ElementTree as ET
+from utils.configs import config
 
 from fastapi import (
   APIRouter, FastAPI, Depends, UploadFile, File, HTTPException, Body
@@ -25,31 +26,25 @@ class IconConfigManager:
   def __init__(self):
     self.folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../store"))
     self.fonts_folder = os.path.join(self.folder, "fonts")
-    self.config_path = os.path.join(self.fonts_folder, "config.json")
-    self.log_path = os.path.join(self.fonts_folder, "actions.log")
     self.icons_path = os.path.join(self.fonts_folder, "icons")
+    self.config_csv_path = os.path.join(self.fonts_folder, "config.csv")
+    self.config_csv_base = os.path.join(self.fonts_folder, "config_base.csv")
+    self.log_path = os.path.join(self.fonts_folder, "actions.log")
     self.output_path = os.path.join(self.fonts_folder, "output")
     self.csv_path = os.path.join(self.output_path, "font.csv")
     self.uploaded_font = os.path.join(self.fonts_folder, "uploaded_font.svg")
 
-    os.makedirs(self.icons_path, exist_ok=True)
+    os.makedirs(self.fonts_folder, exist_ok=True)
     os.makedirs(self.output_path, exist_ok=True)
 
-    if not os.path.exists(self.config_path):
-      self.generate_default_config()
-
-    if not self.is_font_built():
-      self.generate_fonts()
-
-  def generate_default_config(self):
-    icons = []
-    for f in os.listdir(self.icons_path):
-      if f.endswith(".svg"):
-        name = os.path.splitext(f)[0]
-        icons.append(name)
-    with open(self.config_path, "w", encoding="utf-8") as f:
-      json.dump({"icons": sorted(icons)}, f, indent=2, ensure_ascii=False)
-    self.log("generated default config", {"icons": len(icons)})
+    if not os.path.exists(self.config_csv_path):
+      if os.path.exists(self.config_csv_base):
+        copyfile(self.config_csv_base, self.config_csv_path)
+        self.log("copy config from base")
+      else:
+        with open(self.config_csv_path, "w", encoding="utf-8") as f:
+          f.write("name,folder\n")
+        self.log("create empty config")
 
   def log(self, action: str, payload: dict = None):
     with open(self.log_path, "a", encoding="utf-8") as f:
@@ -58,164 +53,200 @@ class IconConfigManager:
         line += f" - {json.dumps(payload, ensure_ascii=False)}"
       f.write(line + "\n")
 
-  def copy_start_config(self):
-    copyfile(self.start_path, self.config_path)
-    self.log("reset to start")
+  def read_config_csv(self):
+    import csv
+    result = []
+    with open(self.config_csv_path, encoding="utf-8") as f:
+      reader = csv.DictReader(f)
+      for row in reader:
+        result.append(row)
+    return result
 
-  def read_config(self):
-    with open(self.config_path, encoding="utf-8") as f:
-      return json.load(f)
+  def write_config_csv(self, data):
+    import csv
+    if 'icons' in data:
+      data = data['icons']
+    for row in data:
+      if "folder" not in row or "name" not in row:
+        raise HTTPException(status_code=500, detail="Invalid data format")
+    with open(self.config_csv_path, "w", encoding="utf-8", newline='') as f:
+      writer = csv.DictWriter(f, fieldnames=["name", "folder"])
+      writer.writeheader()
+      writer.writerows(data)
+    self.log("update config.csv", {"count": len(data)})
 
-  def update_config(self, data: dict):
-    with open(self.config_path, "w", encoding="utf-8") as f:
-      json.dump(data, f, indent=2, ensure_ascii=False)
-    self.log("update", data)
+  def get_font_name(self):
+    csv_file = os.path.basename(self.config_csv_path)
+    name = os.path.splitext(csv_file)[0]
+    return name
 
-  # Извлечение глифов из font_start.svg (если icons папка пуста)
-  def extract_glyphs_from_font_start(self):
-    tree = ET.parse(self.start_font)
-    root = tree.getroot()
-    ns = {'svg': 'http://www.w3.org/2000/svg'}
+  def get_font_path(self, ext: str):
+    filename = f"{self.get_font_name()}.{ext}"
+    path = os.path.join(self.output_path, filename)
+    if not os.path.exists(path):
+      raise HTTPException(status_code=404, detail="Font not generated")
+    return path
 
-    glyphs = root.findall(".//svg:glyph", ns)
-    count = 0
-    for glyph in glyphs:
-      name = glyph.attrib.get("glyph-name")
-      path_data = glyph.attrib.get("d")
-      if not name or not path_data:
-        continue
-      content = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0">
-  <g transform="scale(1 -1) translate(0 -1000)">
-    <path d="{path_data}"/>
-  </g>
-</svg>'''
-      with open(os.path.join(self.icons_path, f"{name}.svg"), "w", encoding="utf-8") as f:
-        f.write(content)
-      count += 1
-    self.log("extract glyphs from font_start.svg", {"count": count})
-
-  # Извлечение глифов из загруженного SVG-шрифта; target_folder — папка, куда сохранять
-  def extract_glyphs_from_uploaded_font(self, font_file_path: str, target_folder: str):
-    os.makedirs(target_folder, exist_ok=True)
-    tree = ET.parse(font_file_path)
-    root = tree.getroot()
-    ns = {'svg': 'http://www.w3.org/2000/svg'}
-
-    glyphs = root.findall(".//svg:glyph", ns)
-    count = 0
-    for glyph in glyphs:
-      name = glyph.attrib.get("glyph-name")
-      path_data = glyph.attrib.get("d")
-      if not name or not path_data:
-        continue
-      content = self._clean_svg_for_font(f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
-  <g transform="scale(1 -1) translate(0 -1000)">
-    <path d="{path_data}"/>
-  </g>
-</svg>''', calc_viewBox=True, calc_transform=True)
-
-      with open(os.path.join(target_folder, f"{name}.svg"), "w", encoding="utf-8") as f:
-        f.write(content.decode("utf-8"))
-      count += 1
-    self.log("extract glyphs from uploaded font", {"count": count, "target": os.path.basename(target_folder)})
-
-  def _clean_svg_for_font(self, file_stream_or_text, dest_path=None, calc_viewBox=False, calc_transform=False):
-    """
-    Версия, принимающая файл (file-like) или str (текст SVG).
-    При calc_viewBox=True — автоматически рассчитывает viewBox по path-данным с помощью svgpathtools.
-    """
-    try:
-      from io import StringIO
-      from svgpathtools import parse_path
-
-      if isinstance(file_stream_or_text, str):
-        file_stream = StringIO(file_stream_or_text)
-      else:
-        file_stream = file_stream_or_text
-
-      ET.register_namespace('', "http://www.w3.org/2000/svg")
-      parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
-      tree = ET.parse(file_stream, parser=parser)
-      root = tree.getroot()
-
-      NS = {'svg': 'http://www.w3.org/2000/svg'}
-
-      # Удаляем мусорные теги
-      for tag in ["metadata", "style", "desc", "title"]:
-        for el in root.findall(f".//svg:{tag}", NS):
-          parent = el.getparent() or root
-          parent.remove(el)
-
-      # Очистка атрибутов
-      def recursive_clean(elem):
-        for attr in list(elem.attrib):
-          if attr.startswith("id") or attr.startswith("class") or attr.startswith("data-") or \
-              attr in {"style", "font-family", "font-weight", "font-style", "opacity"}:
-            del elem.attrib[attr]
-        for child in elem:
-          recursive_clean(child)
-
-      recursive_clean(root)
-
-      # ===== Коррекция viewBox по содержимому path =====
-      if calc_viewBox:
-        xmin, ymin, xmax, ymax = None, None, None, None
-        for path in root.findall(".//svg:path", NS):
-          d = path.attrib.get("d")
-          if not d:
+  def get_css(self):
+    font_name = self.get_font_name()
+    ts = int(os.path.getmtime(self.get_font_path("woff2")))  # timestamp для обновления кеша
+    css = f"""
+@font-face {{
+  font-family: '{font_name}';
+  src: url('/api/fonts/font.woff2?t={ts}') format('woff2'),
+       url('/api/fonts/font.woff?t={ts}') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}}
+[class^='icon-'], [class*=' icon-'] {{
+  font-family: '{font_name}' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}}
+  """
+    if os.path.exists(self.csv_path):
+      with open(self.csv_path, encoding="utf-8") as f:
+        for line in f:
+          if line.startswith("codepoint"):
             continue
-          try:
-            p = parse_path(d)
-            pxmin, pxmax, pymin, pymax = p.bbox()
-            if xmin is None:
-              xmin, xmax, ymin, ymax = pxmin, pxmax, pymin, pymax
-            else:
-              xmin = min(xmin, pxmin)
-              xmax = max(xmax, pxmax)
-              ymin = min(ymin, pymin)
-              ymax = max(ymax, pymax)
-          except Exception:
-            continue
+          parts = line.strip().split(',')
+          if len(parts) >= 3:
+            _, name, unicode_val = parts
+            unicode_hex = unicode_val.replace("\\ue", "\\e")
+            css += f".icon-{name}::before {{ content: '{unicode_hex}'; }}\n"
 
-        if None not in (xmin, xmax, ymin, ymax):
-          width = xmax - xmin
-          height = ymax - ymin
-          xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(width), int(height)
-        else:
-          xmin, ymin, xmax, ymax = 0, 0, 1000, 1000
+    return css
 
-        viewBox = root.attrib.get("viewBox")
-        if not viewBox or viewBox.strip() == "0 0 0 0":
-          root.attrib["viewBox"] = f"{xmin} {ymin} {xmax} {ymax}"
-        else:
-          # Если viewBox уже задан, то не перезаписываем его то считаем какое отклонение от полученных значений
-          vb_xmin, vb_ymin, vb_width, vb_height = map(int, viewBox.split())
-          k_height = vb_height / ymax
-          k_width = vb_width / xmax
-          if abs(1 - k_height) > 0.15 or abs(1 - k_width) > 0.15:
-            root.attrib["viewBox"] = f"{xmin} {ymin} {xmax} {ymax}"
+  def generate_fonts(self):
+    config = self.read_config_csv()
+    font_name = self.get_font_name()
+    script = f'''
+import fontforge
+import os
+import csv
+icons_base = r"{self.fonts_folder}"
+output_path = r"{self.output_path}"
+csv_path = r"{self.csv_path}"
 
-      # ===== Коррекция transform =====
-      if calc_transform:
-        viewBox = root.attrib.get("viewBox", "0 0 1000 1000")
-        try:
-          _, pos_x_val, _, height_val = map(int, viewBox.split())
-        except:
-          height_val = 1000
-          pos_x_val = 0
-        for g in root.findall(".//svg:g", NS):
-          t = g.attrib.get("transform")
-          if t:
-            g.attrib["transform"] = f"scale(1 -1) translate(0 -{height_val + pos_x_val * 2})"
+font = fontforge.font()
+font.encoding = "UnicodeFull"
+font.fontname = "{font_name}"
+font.fullname = "{font_name}"
+font.familyname = "{font_name}"
 
-      if dest_path:
-        ET.ElementTree(root).write(dest_path, encoding="utf-8", xml_declaration=True, default_namespace=None)
-      else:
-        output = ET.tostring(root, encoding="utf-8", method="xml")
-        return output
+codepoint = {CODEPOINT_START}
+mappings = []
 
-    except Exception as e:
-      raise HTTPException(status_code=400, detail=f"Invalid SVG: {e}")
+with open(r"{self.config_csv_path}", encoding="utf-8") as f:
+  reader = csv.DictReader(f)
+  for row in reader:
+    name = row['name']
+    folder = row['folder']
+    path = os.path.join(icons_base, 'icons', folder, name + '.svg')
+    if not os.path.exists(path):
+      continue
+    glyph = font.createChar(codepoint, name)
+    glyph.importOutlines(path)
+    glyph.width = 1000
+    mappings.append((codepoint, name))
+    codepoint += 1
+
+font.generate(os.path.join(output_path, f"{font_name}.ttf"))
+font.generate(os.path.join(output_path, f"{font_name}.woff"))
+font.generate(os.path.join(output_path, f"{font_name}.woff2"))
+font.generate(os.path.join(output_path, f"{font_name}.eot"))
+font.generate(os.path.join(output_path, f"{font_name}.svg"))
+
+with open(csv_path, "w", encoding="utf-8") as f:
+  f.write("codepoint,name,unicode\\n")
+  for code, name in mappings:
+    f.write(f"{{code}},{{name}},\\\\u{{code:04x}}\\n")
+'''
+    process = subprocess.Popen(
+      ["fontforge", "-script", "/dev/stdin"],
+      stdin=subprocess.PIPE,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True
+    )
+    stdout, stderr = process.communicate(script)
+    if process.returncode != 0:
+      raise HTTPException(status_code=500, detail=stderr)
+    self.log("generate fonts")
+
+  def get_icon_list(self):
+    result = []
+    root_path = self.icons_path
+    for folder in os.listdir(root_path):
+      folder_path = os.path.join(root_path, folder)
+      if not os.path.isdir(folder_path):
+        continue
+      for file in os.listdir(folder_path):
+        if file.lower().endswith(".svg"):
+          name = os.path.splitext(file)[0]
+          result.append({
+            "name": name,
+            "folder": folder,
+            # "path": os.path.join(folder_path, file)
+          })
+    return result
+
+  def list_icons(self):
+    return self.get_icon_list()
+
+  def get_icon_path(self, name: str, folder: str):
+    if name.lower().endswith('.svg'):
+      name = name[:-4]
+    full_path = os.path.join(self.fonts_folder, "icons", folder, name + ".svg")
+    if not os.path.exists(full_path):
+      raise HTTPException(status_code=404, detail="File not found")
+    return full_path
+
+  def delete_icon(self, name: str, folder: str):
+    path = self.get_icon_path(name, folder)
+    os.remove(path)
+    self.log("delete svg", {"folder": folder, "name": name})
+
+    config = self.read_config_csv()
+    new_config = [row for row in config if not (row['name'] == name and row['folder'] == folder)]
+    if len(new_config) != len(config):
+      self.write_config_csv(new_config)
+
+    return path
+
+  def rename_icon(self, old_name: str, new_name: str, folder: str):
+    base = os.path.join(self.fonts_folder, "icons", folder)
+    if old_name.lower().endswith('.svg'):
+      old_name = old_name[:-4]
+    if new_name.lower().endswith('.svg'):
+      new_name = new_name[:-4]
+    old_path = os.path.join(base, old_name + ".svg")
+    new_path = os.path.join(base, new_name + ".svg")
+
+    if not os.path.exists(old_path):
+      raise HTTPException(status_code=404, detail="Original icon not found")
+    if os.path.exists(new_path):
+      raise HTTPException(status_code=400, detail="Target name already exists")
+
+    os.rename(old_path, new_path)
+    self.log("rename svg", {"folder": folder, "from": old_name, "to": new_name})
+
+    config = self.read_config_csv()
+    updated = False
+    for row in config:
+      if row['name'] == old_name and row['folder'] == folder:
+        row['name'] = new_name
+        updated = True
+    if updated:
+      self.write_config_csv(config)
+
+    return {"from": old_name, "to": new_name, "folder": folder, "updated": updated}
 
   def _human_size(self, size_bytes):
     if size_bytes < 1024:
@@ -226,17 +257,123 @@ class IconConfigManager:
       return f"{size_bytes / (1024 ** 2):.1f} MB"
     return f"{size_bytes / (1024 ** 3):.1f} GB"
 
-  def save_uploaded_svg(self, file: UploadFile):
+  def _clean_svg_for_font(self, file_stream_or_text, dest_path=None, calc_viewBox=False, calc_transform=False):
+    from io import StringIO
+    from svgpathtools import parse_path
 
+    if isinstance(file_stream_or_text, str):
+      file_stream = StringIO(file_stream_or_text)
+    else:
+      file_stream = file_stream_or_text
+
+    ET.register_namespace('', "http://www.w3.org/2000/svg")
+    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+    tree = ET.parse(file_stream, parser=parser)
+    root = tree.getroot()
+    NS = {'svg': 'http://www.w3.org/2000/svg'}
+
+    for tag in ["metadata", "style", "desc", "title"]:
+      for el in root.findall(f".//svg:{tag}", NS):
+        parent = el.getparent() or root
+        parent.remove(el)
+
+    def recursive_clean(elem):
+      for attr in list(elem.attrib):
+        if attr.startswith("id") or attr.startswith("class") or attr.startswith("data-") or \
+            attr in {"style", "font-family", "font-weight", "font-style", "opacity"}:
+          del elem.attrib[attr]
+      for child in elem:
+        recursive_clean(child)
+
+    recursive_clean(root)
+
+    if calc_viewBox:
+      xmin, ymin, xmax, ymax = None, None, None, None
+      for path in root.findall(".//svg:path", NS):
+        d = path.attrib.get("d")
+        if not d:
+          continue
+        try:
+          p = parse_path(d)
+          pxmin, pxmax, pymin, pymax = p.bbox()
+          if xmin is None:
+            xmin, xmax, ymin, ymax = pxmin, pxmax, pymin, pymax
+          else:
+            xmin = min(xmin, pxmin)
+            xmax = max(xmax, pxmax)
+            ymin = min(ymin, pymin)
+            ymax = max(ymax, pymax)
+        except Exception:
+          continue
+
+      if None not in (xmin, xmax, ymin, ymax):
+        width = xmax - xmin
+        height = ymax - ymin
+        xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(width), int(height)
+      else:
+        xmin, ymin, xmax, ymax = 0, 0, 1000, 1000
+
+      viewBox = root.attrib.get("viewBox")
+      if not viewBox or viewBox.strip() == "0 0 0 0":
+        root.attrib["viewBox"] = f"{xmin} {ymin} {xmax} {ymax}"
+      else:
+        vb_xmin, vb_ymin, vb_width, vb_height = map(int, viewBox.split())
+        k_height = vb_height / ymax if ymax else 1
+        k_width = vb_width / xmax if xmax else 1
+        if abs(1 - k_height) > 0.15 or abs(1 - k_width) > 0.15:
+          root.attrib["viewBox"] = f"{xmin} {ymin} {xmax} {ymax}"
+    if calc_transform:
+      viewBox = root.attrib.get("viewBox", "0 0 1000 1000")
+      try:
+        _, pos_y, _, height_val = map(int, viewBox.strip().split())
+      except:
+        height_val = 1000
+        pos_y = 0
+      for g in root.findall(".//svg:g", NS):
+        t = g.attrib.get("transform")
+        if t:
+          g.attrib["transform"] = f"scale(1 -1) translate(0 -{height_val + pos_y * 2})"
+
+    if dest_path:
+      ET.ElementTree(root).write(dest_path, encoding="utf-8", xml_declaration=True, default_namespace=None)
+    else:
+      return ET.tostring(root, encoding="utf-8", method="xml")
+
+    # Извлечение глифов из загруженного SVG-шрифта; target_folder — папка, куда сохранять
+    def extract_glyphs_from_uploaded_font(self, font_file_path: str, target_folder: str):
+      os.makedirs(target_folder, exist_ok=True)
+      tree = ET.parse(font_file_path)
+      root = tree.getroot()
+      ns = {'svg': 'http://www.w3.org/2000/svg'}
+
+      glyphs = root.findall(".//svg:glyph", ns)
+      count = 0
+      for glyph in glyphs:
+        name = glyph.attrib.get("glyph-name")
+        path_data = glyph.attrib.get("d")
+        if not name or not path_data:
+          continue
+        content = self._clean_svg_for_font(f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+    <g transform="scale(1 -1) translate(0 -1000)">
+      <path d="{path_data}"/>
+    </g>
+  </svg>''', calc_viewBox=True, calc_transform=True)
+
+        with open(os.path.join(target_folder, f"{name}.svg"), "w", encoding="utf-8") as f:
+          f.write(content.decode("utf-8"))
+        count += 1
+      self.log("extract glyphs from uploaded font", {"count": count, "target": os.path.basename(target_folder)})
+
+  def save_uploaded_svg(self, file: UploadFile):
     original_name = file.filename
     ext = os.path.splitext(original_name)[1].lower()
 
-    if ext not in [".svg", '.woff', '.woff2']:
+    if ext not in [".svg", ".woff", ".woff2"]:
       raise HTTPException(status_code=400, detail="Invalid file type. Only SVG, WOFF, WOFF2 are allowed.")
     base_name = os.path.splitext(original_name)[0]
 
     if ext in {".woff", ".woff2"}:
-      target_folder = os.path.join(self.icons_path, base_name)
+      target_folder = os.path.join(self.fonts_folder, "icons", base_name)
       os.makedirs(target_folder, exist_ok=True)
 
       tmp_path = os.path.join(self.fonts_folder, f"uploaded_font{ext}")
@@ -259,16 +396,13 @@ class IconConfigManager:
           if not svg_path.strip():
             continue
 
-          # Очистка имени
-          safe_name = re.sub(r'[^a-zA-Z0-9_-]', '', glyph_name.lower())
-          if not safe_name:
-            safe_name = f"glyph_{codepoint:04x}"
+          safe_name = re.sub(r'[^a-zA-Z0-9_-]', '', glyph_name.lower()) or f"glyph_{codepoint:04x}"
 
           svg_content = self._clean_svg_for_font(f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0">
-      <g transform="scale(1 -1) translate(0 -1000)">
-        <path d="{svg_path}"/>
-      </g>
-    </svg>""", calc_viewBox=True, calc_transform=True)
+  <g transform="scale(1 -1) translate(0 -1000)">
+    <path d="{svg_path}"/>
+  </g>
+</svg>""", calc_viewBox=True, calc_transform=True)
 
           out_path = os.path.join(target_folder, f"{safe_name}.svg")
           with open(out_path, "w", encoding="utf-8") as out:
@@ -287,13 +421,12 @@ class IconConfigManager:
         "count": written,
         "size": self._human_size(os.path.getsize(tmp_path))
       }
-
+    # Проверка на SVG-шрифт
     first_bytes = file.file.read(1024).decode(errors="ignore")
     file.file.seek(0)
 
-    # SVG-шрифт — содержит <font> или <glyph>
     if "<font" in first_bytes or "<glyph" in first_bytes:
-      target_folder = os.path.join(self.icons_path, base_name)
+      target_folder = os.path.join(self.fonts_folder, "icons", base_name)
       os.makedirs(target_folder, exist_ok=True)
       dest_path = os.path.join(self.fonts_folder, "uploaded_font.svg")
       with open(dest_path, "wb") as f:
@@ -304,7 +437,6 @@ class IconConfigManager:
       size = os.path.getsize(dest_path)
 
       self.log("upload font", {"filename": original_name, "folder": base_name})
-
       return {
         "uploaded": original_name,
         "folder": base_name,
@@ -314,16 +446,17 @@ class IconConfigManager:
       }
 
     # Одиночная иконка → custom
-    custom_path = os.path.join(self.icons_path, "custom")
-    os.makedirs(custom_path, exist_ok=True)
+    custom_folder = "custom"
+    target_folder = os.path.join(self.fonts_folder, "icons", custom_folder)
+    os.makedirs(target_folder, exist_ok=True)
 
-    dest_path = os.path.join(custom_path, original_name)
+    dest_path = os.path.join(target_folder, original_name)
     if os.path.exists(dest_path):
       base, ext = os.path.splitext(original_name)
       i = 1
       while True:
         new_name = f"{base}_{i}{ext}"
-        dest_path = os.path.join(custom_path, new_name)
+        dest_path = os.path.join(target_folder, new_name)
         if not os.path.exists(dest_path):
           break
         i += 1
@@ -336,175 +469,86 @@ class IconConfigManager:
 
     size = os.path.getsize(dest_path)
     self.log("upload svg", {"original": original_name, "saved_as": final_name})
-
     return {
       "uploaded": original_name,
       "saved_as": final_name,
-      "folder": "custom",
+      "folder": custom_folder,
       "mode": "single",
       "size": self._human_size(size)
     }
 
-  def rename_icon(self, old_name: str, new_name: str):
-    old_path = os.path.join(self.icons_path, old_name)
-    new_path = os.path.join(self.icons_path, new_name)
+  def auto_add_icons_from_names(self, icon_names: list[str]) -> int:
+    if not config["auto_icon_finder"]:
+      return 0
 
-    if not os.path.exists(old_path):
-      raise HTTPException(status_code=404, detail="Original icon not found")
-    if os.path.exists(new_path):
-      raise HTTPException(status_code=400, detail="Target name already exists")
+    config_data = self.read_config_csv()
+    existing = set((row["folder"], row["name"]) for row in config_data)
+    to_add = []
 
-    os.rename(old_path, new_path)
-    self.log("rename svg", {"from": old_name, "to": new_name})
-    return {"from": old_name, "to": new_name}
+    for name in icon_names:
+      for root, _, files in os.walk(self.icons_path):
+        for file in files:
+          if not file.lower().endswith(".svg"):
+            continue
+          fname = os.path.splitext(file)[0]
+          if fname != name:
+            continue
+          folder = os.path.relpath(root, self.icons_path)
+          key = (folder, fname)
+          if key not in existing:
+            to_add.append({"folder": folder, "name": fname})
+            existing.add(key)
+          break  # нашли иконку — не продолжаем поиск по другим файлам
+        else:
+          continue  # не нашли — идём дальше
+        break  # нашли — прерываем os.walk
 
-  def generate_fonts(self):
-    script = f'''
-import fontforge
-import os
-icons_path = r"{self.icons_path}"
-output_path = r"{self.output_path}"
-csv_path = r"{self.csv_path}"
+    self.log('auto add icons', {"count": len(to_add),
+                                "icons": [f"{folder}/{name}" for folder, name in to_add],
+                                "existing": [f"{folder}/{name}" for folder, name in existing],
+                                })
+    if to_add:
+      config_data.extend(to_add)
+      self.write_config_csv(config_data)
+      self.generate_fonts()
+      return len(to_add)
 
-font = fontforge.font()
-font.encoding = "UnicodeFull"
-font.fontname = "{FONT_NAME}"
-font.fullname = "{FONT_NAME}"
-font.familyname = "{FONT_NAME}"
-
-codepoint = {CODEPOINT_START}
-mappings = []
-
-# Итерируем по всем одиночным иконкам в папке icons (не рекурсивно)
-for filename in sorted(os.listdir(icons_path)):
-    if not filename.lower().endswith(".svg"):
-        continue
-    name = os.path.splitext(filename)[0]
-    path = os.path.join(icons_path, filename)
-    glyph = font.createChar(codepoint, name)
-    glyph.importOutlines(path)
-    glyph.width = 1000
-    mappings.append((codepoint, name))
-    codepoint += 1
-
-font.generate(os.path.join(output_path, "{FONT_NAME}.ttf"))
-font.generate(os.path.join(output_path, "{FONT_NAME}.woff"))
-font.generate(os.path.join(output_path, "{FONT_NAME}.woff2"))
-font.generate(os.path.join(output_path, "{FONT_NAME}.eot"))
-font.generate(os.path.join(output_path, "{FONT_NAME}.svg"))
-
-with open(csv_path, "w", encoding="utf-8") as f:
-    f.write("codepoint,name,unicode\\n")
-    for code, name in mappings:
-        f.write(f"{{code}},{{name}},\\\\u{{code:04x}}\\n")
-'''
-    process = subprocess.Popen(
-      ["fontforge", "-script", "/dev/stdin"],
-      stdin=subprocess.PIPE,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True
-    )
-    stdout, stderr = process.communicate(script)
-    if process.returncode != 0:
-      raise HTTPException(status_code=500, detail=stderr)
-    self.log("generate fonts")
-
-  def is_font_built(self):
-    required = ["icons.ttf", "icons.woff", "icons.woff2"]
-    return all(os.path.exists(os.path.join(self.output_path, f)) for f in required)
-
-  def get_icon_list(self, filepath: str):
-    # Получаем список файлов иконок в папке icons + вложенные папки
-    files = []
-    for root, _, filenames in os.walk(filepath):
-      for filename in filenames:
-        if filename.lower().endswith(".svg"):
-          files.append(os.path.relpath(os.path.join(root, filename), filepath))
-    return sorted(files)
-
-  # Работа с файлами иконок (одиночные)
-  def list_icons(self):
-    # Получаем список файлов иконок в папке icons + вложенные папки
-    return self.get_icon_list(self.icons_path)
-
-  def delete_icon(self, filepath: str):
-    # filepath может содержать подпапку, например "example/alarm.svg"
-    full_path = os.path.join(self.icons_path, filepath)
-    if not os.path.exists(full_path):
-      raise HTTPException(status_code=404, detail="File not found")
-    os.remove(full_path)
-    self.log("delete svg", {"filepath": filepath})
-    return filepath
-
-  def get_icon_path(self, filepath: str):
-    full_path = os.path.join(self.icons_path, filepath)
-    if not os.path.exists(full_path):
-      raise HTTPException(status_code=404, detail="File not found")
-    return full_path
-
-  # Работа с шрифтом (сгенерированными файлами)
-  def get_font_path(self, ext: str):
-    path = os.path.join(self.output_path, f"icons.{ext}")
-    if not os.path.exists(path):
-      print(f"Font file not found: {path}")
-      raise HTTPException(status_code=404, detail="Font not generated")
-    return path
-
-  def get_csv_path(self):
-    if not os.path.exists(self.csv_path):
-      raise HTTPException(status_code=404, detail="CSV not found")
-    return self.csv_path
+    return 0
 
 
 manager = IconConfigManager()
 
 
-# ---------------------- ROUTES ----------------------
-
-
-# Получение списка иконок (одиночные файлы) – можно расширить для рекурсии
 @GET_router.get("/icons")
 def list_icons():
   return manager.list_icons()
 
 
-# Получение объединённого списка иконок с метаданными из config
 @GET_router.get("/icons/with-meta")
 def icons_with_meta():
-  # Предполагаем, что config.json содержит ключ "icons" со списком имен
-  config_data = manager.read_config()
-  defined = set(config_data.get("icons", [])) if isinstance(config_data, dict) else set()
-  folder_icons = set(manager.list_icons())
-  # Если в папке есть подпапки — можно добавить их файлы (в виде "subdir/filename.svg")
-  for entry in os.listdir(manager.icons_path):
-    full = os.path.join(manager.icons_path, entry)
-    if os.path.isdir(full):
-      files = [f"{entry}/{f}" for f in os.listdir(full) if f.lower().endswith(".svg")]
-      folder_icons.update(files)
+  config_data = manager.read_config_csv()
+  config_set = set((row['name'], row['folder']) for row in config_data if 'name' in row and 'folder' in row)
+
+  actual_icons = manager.get_icon_list()
+  icon_set = set((i['name'], i['folder']) for i in actual_icons)
+
+  all_keys = config_set.union(icon_set)
+
   merged = []
-  all_names = defined.union({os.path.splitext(name)[0] for name in folder_icons})
-  for name in sorted(all_names):
+  for name, folder in sorted(all_keys):
     merged.append({
-      "name": name.split('/')[-1],
-      'folder': name.split('/')[0] if '/' in name else None,
-      "defined": name in defined,
-      "exists": any(name == os.path.splitext(f)[0] for f in folder_icons),
+      "name": name,
+      "folder": folder,
+      "defined": (name, folder) in config_set,
+      "exists": (name, folder) in icon_set
     })
   return merged
 
 
-@GET_router.get("/icons/{filename:path}")
-def get_icon(filename: str):
-  path = os.path.join(manager.icons_path, filename)
-  if not os.path.exists(path):
-    raise HTTPException(status_code=404, detail="Icon not found")
+@GET_router.get("/icons/{folder}/{name}")
+def get_icon(folder: str, name: str):
+  path = manager.get_icon_path(name, folder)
   return FileResponse(path, media_type="image/svg+xml")
-
-
-@GET_router.get("/font.csv")
-def get_csv():
-  return FileResponse(manager.get_csv_path(), media_type="text/csv")
 
 
 @GET_router.get("/font.{ext}")
@@ -514,72 +558,12 @@ def get_font(ext: str):
 
 @GET_router.get("/style.css")
 def get_font_css():
-  css = f"""
-@font-face {{
-  font-family: '{FONT_NAME}';
-  src: url('/api/fonts/font.woff2') format('woff2'),
-       url('/api/fonts/font.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-}}
-[class^='icon-'], [class*=' icon-'] {{
-  font-family: '{FONT_NAME}' !important;
-  speak: none;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}}
-"""
-
-  csv_path = manager.get_csv_path()
-  if os.path.exists(csv_path):
-    with open(csv_path, encoding="utf-8") as f:
-      for line in f:
-        if line.startswith("codepoint"):
-          continue
-        parts = line.strip().split(',')
-        if len(parts) >= 3:
-          _, name, unicode_val = parts
-          # преобразуем '\\uXXXX' → '\\eXXX' без двойного экранирования
-          unicode_hex = unicode_val.replace("\\ue", "\\e")
-          css += f".icon-{name}::before {{ content: '{unicode_hex}'; }}\n"
-
-  return Response(content=css, media_type="text/css")
-
-
-# === POST/DELETE (только admin) ===
-# Удаление иконки
-@POST_router.delete("/icons/{filepath:path}")
-def delete_icon(filepath: str):
-  deleted = manager.delete_icon(filepath)
-  return {"status": "deleted", "filepath": deleted}
+  return Response(content=manager.get_css(), media_type="text/css")
 
 
 @POST_router.post("/upload")
 def upload_icon(file: UploadFile = File(...)):
-  return {"status": "ok", "filename": manager.save_uploaded_svg(file)}
-
-
-@POST_router.get("/config")
-def get_config():
-  return manager.read_config()
-
-
-@POST_router.post("/config")
-def update_config(data: dict = Body(...)):
-  manager.update_config(data)
-  manager.generate_fonts()
-  return {"status": "ok"}
-
-
-@POST_router.post("/reset")
-def reset_config():
-  manager.copy_start_config()
-  return {"status": "reset"}
+  return {"status": "ok", **manager.save_uploaded_svg(file)}
 
 
 @POST_router.post("/generate")
@@ -590,7 +574,7 @@ def generate_font():
 
 @POST_router.post("/icons/edit")
 def edit_icon(filepath: str = Body(...), rotate: float = Body(0), flip: str = Body(None)):
-  path = manager.get_icon_path(filepath)
+  path = os.path.join(manager.fonts_folder, "icons", filepath)
   tree = ET.parse(path)
   root = tree.getroot()
   g = root.find(".//{http://www.w3.org/2000/svg}g")
@@ -610,10 +594,37 @@ def edit_icon(filepath: str = Body(...), rotate: float = Body(0), flip: str = Bo
 
 @POST_router.post("/icons/rename")
 def rename_icon(data: dict = Body(...)):
-  return manager.rename_icon(data["old_name"], data["new_name"])
+  return manager.rename_icon(data["old_name"], data["new_name"], data["folder"])
 
 
-# === Подключение роутеров ===
+@POST_router.delete("/icons/{folder}/{name}")
+def delete_icon(folder: str, name: str):
+  manager.delete_icon(name, folder)
+  return {"status": "deleted", "folder": folder, "name": name}
+
+
+@POST_router.get("/config")
+def get_config():
+  return manager.read_config_csv()
+
+
+@POST_router.post("/config")
+def update_config(data: dict = Body(...)):
+  manager.write_config_csv(data)
+  manager.generate_fonts()
+  return {"status": "ok"}
+
+
+@GET_router.post("/icon/notfound")
+def icon_notfound(data: dict = Body(...)):
+  icons = data.get("icons", [])
+  if not isinstance(icons, list):
+    raise HTTPException(status_code=400, detail="Invalid payload")
+
+  updated = manager.auto_add_icons_from_names(icons)
+  return {"status": "ok", "updated": updated}
+
+
 def add_route(app: FastAPI):
   app.include_router(GET_router)
   app.include_router(POST_router)

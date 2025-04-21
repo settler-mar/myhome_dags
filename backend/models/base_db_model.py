@@ -40,14 +40,22 @@ class BaseModelDB(Base):
     'created_by': {
       'type': 'alias',
       'table': 'users',
-      'template': '{name} ({id})',
+      'template': '{username} ({id})',
       'key': 'id'
     },
     'updated_by': {
       'type': 'alias',
       'table': 'users',
+      'template': '{username} ({id})',
+      'key': 'id',
+    },
+    'location_id': {
+      'name': 'location',
+      'type': 'alias',
+      'table': 'locations',
       'template': '{name} ({id})',
       'key': 'id',
+      'nullable': True
     }
   }
   readonly_columns = ['id']
@@ -111,12 +119,10 @@ class BaseModelDB(Base):
           pass
 
       # Пример и описание
-      field_info = Field(
-        default=default_value,
-        title=column.name.replace('_', ' ').capitalize(),
-        description=str(column.type),
-        example=get_example(py_type, column.name)
-      )
+      field_info = Field(default=default_value,
+                         title=column.name.replace('_', ' ').capitalize(),
+                         description=str(column.type),
+                         example=get_example(py_type, column.name))
 
       fields[column.name] = (typ, field_info)
 
@@ -136,7 +142,9 @@ class BaseModelDB(Base):
         "nullable": column.nullable,
         "primary_key": column.primary_key
       }
-      if hasattr(parent_class, item['name']):
+
+      parent_dir = dir(parent_class)
+      if item['name'] in parent_dir:
         if item['name'] in parent_class.column_element:
           item['element'] = parent_class.column_element[item['name']]
         item['readonly'] = True
@@ -174,9 +182,9 @@ class BaseModelDB(Base):
       @app.get(f"/api/{cls.__tablename__}/", **params)
       @set_func_name(f"list_of_{cls.__tablename__}")
       def list_items():
-        db = db_session()
-        items = db.query(cls).all()
-        return [item.to_dict() for item in items]
+        with db_session() as db:
+          items = db.query(cls).all()
+          return [item.to_dict() for item in items]
 
     if cls._can_create:
       params = {
@@ -189,17 +197,17 @@ class BaseModelDB(Base):
       @app.post(f"/api/{cls.__tablename__}/", **params)
       @set_func_name(f"create_{cls.__tablename__}")
       def create_item(item: cls.CreateSchema, current_user: CurrentUser):
-        db = db_session()
-        db_item = cls(**item.model_dump(), created_by=current_user.id, updated_by=current_user.id)
-        db.add(db_item)
-        try:
-          db.commit()
-        except Exception as e:
-          db.rollback()
-          raise HTTPException(status_code=400, detail=f"Error creating {cls.__tablename__}: {e}")
-        db.refresh(db_item)
-        log_print(f"Created {cls.__tablename__} with id {db_item.id}")
-        return db_item.to_dict()
+        with db_session() as db:
+          db_item = cls(**item.model_dump(), created_by=current_user.id, updated_by=current_user.id)
+          db.add(db_item)
+          try:
+            db.commit()
+          except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"Error creating {cls.__tablename__}: {e}")
+          db.refresh(db_item)
+          log_print(f"Created {cls.__tablename__} with id {db_item.id}")
+          return db_item.to_dict()
 
     if cls._can_read:
       params = {
@@ -212,12 +220,12 @@ class BaseModelDB(Base):
       @app.get(f"/api/{cls.__tablename__}/{{item_id}}", **params)
       @set_func_name(f"read_one_{cls.__tablename__}")
       def read_item(item_id: int):
-        db = db_session()
-        item = db.query(cls).filter(cls.id == item_id).first()
-        if item is None:
-          log_print(f"Item {cls.__tablename__} with id {item_id} not found")
-          raise HTTPException(status_code=404, detail=f"{cls.__tablename__} not found")
-        return item.to_dict()
+        with db_session() as db:
+          item = db.query(cls).filter(cls.id == item_id).first()
+          if item is None:
+            log_print(f"Item {cls.__tablename__} with id {item_id} not found")
+            raise HTTPException(status_code=404, detail=f"{cls.__tablename__} not found")
+          return item.to_dict()
 
     if cls._can_update:
       params = {
@@ -230,17 +238,17 @@ class BaseModelDB(Base):
       @app.put(f"/api/{cls.__tablename__}/{{item_id}}", **params)
       @set_func_name(f"update_{cls.__tablename__}")
       def update_item(item_id: int, item: cls.CreateSchema, current_user: CurrentUser):
-        db = db_session()
-        db_item = db.query(cls).filter(cls.id == item_id).first()
-        if db_item is None:
-          raise HTTPException(status_code=404, detail=f"{cls.__tablename__} not found")
-        for key, value in item.model_dump().items():
-          setattr(db_item, key, value)
-        db_item.updated_by = current_user.id
-        db.commit()
-        db.refresh(db_item)
-        log_print(f"update {cls.__tablename__} with id {item_id} by {current_user.id}")
-        return db_item.to_dict()
+        with db_session() as db:
+          db_item = db.query(cls).filter(cls.id == item_id).first()
+          if db_item is None:
+            raise HTTPException(status_code=404, detail=f"{cls.__tablename__} not found")
+          for key, value in item.model_dump().items():
+            setattr(db_item, key, value)
+          db_item.updated_by = current_user.id
+          db.commit()
+          db.refresh(db_item)
+          log_print(f"update {cls.__tablename__} with id {item_id} by {current_user.id}")
+          return db_item.to_dict()
 
     if cls._can_drop:
       params = {
@@ -253,13 +261,13 @@ class BaseModelDB(Base):
       @app.delete(f"/api/{cls.__tablename__}/{{item_id}}", **params)
       @set_func_name(f"drop_{cls.__tablename__}")
       def drop_item(item_id: int):
-        db = db_session()
-        db_item = db.query(cls).filter(cls.id == item_id).first()
-        if db_item is None:
-          raise HTTPException(status_code=404, detail=f"{cls.__tablename__} not found")
-        db.delete(db_item)
-        db.commit()
-        return {'status': 'ok'}
+        with db_session() as db:
+          db_item = db.query(cls).filter(cls.id == item_id).first()
+          if db_item is None:
+            raise HTTPException(status_code=404, detail=f"{cls.__tablename__} not found")
+          db.delete(db_item)
+          db.commit()
+          return {'status': 'ok'}
 
     if cls._can_get_structure:
       params = {

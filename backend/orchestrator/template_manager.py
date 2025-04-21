@@ -19,18 +19,17 @@ router = APIRouter()
 class TemplateManager(SingletonClass):
   templates = {}
 
-  def __init__(self):
-    self.db = db_session()
-
   def get_templates(self) -> List[Template]:
-    return db_session().query(Template).all()
+    with db_session() as db:
+      return db.query(Template).all()
 
   def get_template(self, name: str, version: str, params: dict = None, path: List[str] = None) -> DAGTemplateBase:
-    tpl = (db_session()
-           .query(Template)
-           .filter(Template.name == name)
-           .filter(Template.version == version)
-           .first())
+    with db_session() as db:
+      tpl = (db
+             .query(Template)
+             .filter(Template.name == name)
+             .filter(Template.version == version)
+             .first())
     if not tpl:
       return
     dag = DAGTemplateBase(tpl=tpl.__dict__, path=path, params=params)
@@ -97,29 +96,29 @@ class DAGTemplateUpdate(BaseModel):
 
 @router.post("/templates/save", tags=["dags_templates"], dependencies=[Depends(RoleChecker('admin'))])
 async def save_template(data: DAGTemplateUpdate):
-  db = db_session()
-  db_tpl = (db
-            .query(Template)
-            .filter(Template.name == data.name)
-            .filter(Template.version == data.version)
-            .first())
-  if not db_tpl:
-    return {'code': 'error', 'message': 'Template not found'}
-  db_tpl.description = data.description
-  db_tpl.sub_title = data.sub_title
-  db_tpl.template = data.template
-  db_tpl.updated_at = datetime.now()
-  db.commit()
-  template = (db
+  with db_session() as db:
+    db_tpl = (db
               .query(Template)
               .filter(Template.name == data.name)
               .filter(Template.version == data.version)
-              ).first().__dict__
-  data = {k: v for k, v in template.items() if k != '_sa_instance_state'}
-  save_to_file(template)
-  await connection_manager.broadcast({"type": "template",
-                                      "action": "update",
-                                      "data": data})
+              .first())
+    if not db_tpl:
+      return {'code': 'error', 'message': 'Template not found'}
+    db_tpl.description = data.description
+    db_tpl.sub_title = data.sub_title
+    db_tpl.template = data.template
+    db_tpl.updated_at = datetime.now()
+    db.commit()
+    template = (db
+                .query(Template)
+                .filter(Template.name == data.name)
+                .filter(Template.version == data.version)
+                ).first().__dict__
+    data = {k: v for k, v in template.items() if k != '_sa_instance_state'}
+    save_to_file(template)
+    await connection_manager.broadcast({"type": "template",
+                                        "action": "update",
+                                        "data": data})
   return {'code': 'ok'}
 
 

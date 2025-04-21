@@ -11,6 +11,7 @@ from sqlalchemy import inspect
 from sqlalchemy.schema import CreateTable
 import re
 
+ # Настройка подключения к БД
 connect_args = {}
 if config['db'].get('check_same_thread') is not None:
   connect_args['check_same_thread'] = config['db']['check_same_thread']
@@ -20,20 +21,39 @@ engine = create_engine(config['db']['url'],
                        connect_args=connect_args)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 
+# Контекстный менеджер для сессии
+class db_session:
+  def __init__(self):
+    self.session = SessionLocal()
+
+  def __enter__(self):
+    return self.session
+
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    self.session.close()
+
+  def __getattr__(self, item):
+    return getattr(self.session, item)
+
+  def close(self):
+    self.session.close()
+
+
+# Экранирование значений по типу (для SQL)
 def escape_val(type_name, val):
   if type_name in ['VARCHAR', 'TEXT', 'CHAR']:
     return f"'{val}'"
   return val
 
 
+# Обновление структуры таблицы для SQLite
+
 def update_struct_sqlite(table_name, expected_columns, existing_columns, inspector):
   create_query = str(CreateTable(Base.metadata.tables[table_name]).compile(dialect=engine.dialect))
   rename_old_table_query = f"ALTER TABLE {table_name} RENAME TO {table_name}_backup"
-  # столбцы которые есть в БД, и в модели по имени
   columns_in_both = [col for col in existing_columns if col[0] in [el[0] for el in expected_columns]]
   insert_query = f"""INSERT INTO {table_name} ({', '.join([col[0] for col in columns_in_both])})
                             SELECT {', '.join([col[0] for col in columns_in_both])} FROM {table_name}_backup"""
@@ -64,9 +84,62 @@ def update_struct_sqlite(table_name, expected_columns, existing_columns, inspect
     connection.execute(f"DROP TABLE {table_name}_backup")
 
 
+# Заглушка для неизвестных движков
+
 def update_struct_default(table_name, expected_columns, existing_columns, inspector):
   pass
 
+
+# Обновление структуры для PostgreSQL
+
+def update_struct_postgres(table_name, expected_columns, existing_columns, inspector):
+  expected_by_name = {col[0]: col for col in expected_columns}
+  existing_by_name = {col[0]: col for col in existing_columns}
+
+  with engine.connect() as connection:
+    def execute(stmt):
+      print(stmt)
+      connection.execute(f'ALTER TABLE "{table_name}" {stmt};')
+
+    for name, exp_type, exp_default, exp_nullable, _ in expected_columns:
+      cur = existing_by_name.get(name)
+      is_text = exp_type.startswith("TEXT")
+      default_clause = ""
+      nullability = "DROP NOT NULL" if exp_nullable else "SET NOT NULL"
+
+      if exp_default is not None and not is_text:
+        default_clause = f"SET DEFAULT {escape_val(exp_type, exp_default)}"
+      elif cur and cur[2] is not None:
+        default_clause = "DROP DEFAULT"
+
+      if not cur:
+        default_expr = f"DEFAULT {escape_val(exp_type, exp_default)}" if exp_default is not None and not is_text else ""
+        null_expr = "NULL" if exp_nullable else "NOT NULL"
+        stmt = f'ADD COLUMN "{name}" {exp_type} {null_expr} {default_expr}'
+        execute(stmt)
+      else:
+        cur_type, _, cur_default = cur
+        cur_default = {
+          'NULL': None,
+          'CURRENT_TIMESTAMP': 'CURRENT_TIMESTAMP',
+          'CURRENT_DATE': 'CURRENT_DATE'
+        }.get(cur_default, cur_default)
+
+        if normalize_type(cur_type) != normalize_type(exp_type):
+          execute(f'ALTER COLUMN "{name}" TYPE {exp_type}')
+
+        if cur_default != exp_default:
+          execute(f'ALTER COLUMN "{name}" {default_clause}')
+
+        if cur[3] != exp_nullable:
+          execute(f'ALTER COLUMN "{name}" {nullability}')
+
+    extra_columns = set(existing_by_name) - set(expected_by_name)
+    for col in extra_columns:
+      execute(f'DROP COLUMN "{col}"')
+
+
+# Вспомогательные функции разбора и нормализации
 
 def extract_columns_block(query):
   match = re.search(r'\((.*)\)\s*(ENGINE|CHARSET|COLLATE|$)', query, re.DOTALL)
@@ -79,11 +152,7 @@ def parse_columns(columns_block):
   for line in lines:
     if line.upper().startswith(('PRIMARY', 'UNIQUE', 'KEY', 'CONSTRAINT', 'INDEX', 'FOREIGN')):
       continue
-    match = re.match(
-      r'`?(\w+)`?\s+(\w+)(?:\((\d+)\))?(.*?)$',
-      line,
-      re.IGNORECASE
-    )
+    match = re.match(r'`?(\w+)`?\s+(\w+)(?:\((\d+)\))?(.*?)$', line, re.IGNORECASE)
     if match:
       name, col_type, size, rest = match.groups()
       full_type = f"{col_type.upper()}({size})" if size else col_type.upper()
@@ -95,7 +164,6 @@ def parse_columns(columns_block):
   return columns
 
 
-# --- Парсим типы и AUTO_INCREMENT ---
 def parse_type_info(query):
   pattern = r'`?(\w+)`?\s+([A-Z]+)(\(\d+\))?(.*?)(?:,|\n|\))'
   matches = re.findall(pattern, query, flags=re.IGNORECASE | re.DOTALL)
@@ -110,15 +178,10 @@ def parse_type_info(query):
 
 def normalize_type(typ: str) -> str:
   typ = typ.upper()
-
-  # Упростим тип и размер отдельно
   base_match = re.match(r'^(\w+)(?:\((\d+)\))?', typ)
   if not base_match:
     return typ
-
   base, size = base_match.groups()
-
-  # Маппинг MySQL-синонимов
   mapping = {
     'INTEGER': 'INT',
     'DEC': 'DECIMAL',
@@ -128,43 +191,36 @@ def normalize_type(typ: str) -> str:
     'LONGTEXT': 'TEXT',
     'TINYINT': 'BOOLEAN' if size == '1' else 'TINYINT'
   }
-
   normalized_base = mapping.get(base, base)
-  # Вернуть с размером, если он релевантен
   if normalized_base in {'BOOLEAN', 'TEXT', 'INT', 'DECIMAL'}:
     return normalized_base
   return f"{normalized_base}({size})" if size else normalized_base
 
 
+# Обновление структуры для MySQL
+
 def update_struct_mysql(table_name, expected_columns, existing_columns, inspector):
   if table_name in ['users']:
-    # игнорируем изменения в этих таблицах
     return
   expected_columns = list(expected_columns)
   create_query = str(CreateTable(Base.metadata.tables[table_name]).compile(dialect=engine.dialect))
-  # SHOW CREATE TABLE table_name
   with engine.connect() as connection:
     cur = connection.execute(f"SHOW CREATE TABLE {table_name}")
     current_query = cur.fetchone()[1]
 
   columns_block = extract_columns_block(current_query)
   current_columns = parse_columns(columns_block)
-
   expected_by_name = {col[0]: col for col in expected_columns}
   current_by_name = {col[0]: col for col in current_columns}
-
-  existing_names = [col[0] for col in current_columns]
-  final_columns = existing_names.copy()
-
   type_overrides = parse_type_info(create_query)
-  # Обновим expected_columns с длинами из create_query
+
   expected_columns = [
     (
       name,
-      type_overrides.get(name, (typ, False))[0],  # тип
+      type_overrides.get(name, (typ, False))[0],
       default,
-      False if auto_inc else type_overrides.get(name, (typ, False))[2],  # AUTO_INCREMENT требует NOT NULL
-      type_overrides.get(name, (typ, False))[1]  # auto_increment
+      False if auto_inc else type_overrides.get(name, (typ, False))[2],
+      type_overrides.get(name, (typ, False))[1]
     )
     for name, typ, default, nullable, auto_inc in expected_columns
   ]
@@ -174,59 +230,35 @@ def update_struct_mysql(table_name, expected_columns, existing_columns, inspecto
       print(stmt)
       connection.execute(f"ALTER TABLE {table_name} {stmt};")
 
-    # --- Генерация ALTER запросов ---
     for name, exp_type, exp_default, exp_nullable, exp_auto_inc in expected_columns:
       is_text = exp_type.startswith("TEXT")
-
-      # нормализация DEFAULT TRUE/FALSE → 1/0 для BOOL
       normalized_default = exp_default
       if exp_type.upper().startswith("BOOL") or exp_type.upper().startswith("BOOLEAN"):
         if isinstance(exp_default, str):
-          if exp_default.strip().lower() == "true":
-            normalized_default = "1"
-          elif exp_default.strip().lower() == "false":
-            normalized_default = "0"
-
+          normalized_default = '1' if exp_default.strip().lower() == "true" else '0'
       nullability = "NULL" if exp_nullable else "NOT NULL"
       default_clause = f"DEFAULT {normalized_default}" if normalized_default and not is_text else ""
       auto_clause = "AUTO_INCREMENT" if exp_auto_inc else ""
-
-      parts = [
-        f"{'ADD' if name not in current_by_name else 'MODIFY'} COLUMN {name}",
-        exp_type,
-        nullability,
-        default_clause,
-        auto_clause
-      ]
+      parts = [f"{'ADD' if name not in current_by_name else 'MODIFY'} COLUMN {name}", exp_type, nullability,
+               default_clause, auto_clause]
       stmt = " ".join(p for p in parts if p).strip()
-
-      # сравнение, только если колонка уже есть
       if name not in current_by_name:
         execute(stmt)
       else:
         _, cur_type, cur_default, cur_nullable, cur_auto_inc = current_by_name[name]
-        cur_default = {
-          'NULL': None,
-          'CURRENT_TIMESTAMP': 'CURRENT_TIMESTAMP',
-          'CURRENT_DATE': 'CURRENT_DATE'
-        }.get(cur_default, cur_default)
+        cur_default = {'NULL': None, 'CURRENT_TIMESTAMP': 'CURRENT_TIMESTAMP', 'CURRENT_DATE': 'CURRENT_DATE'}.get(
+          cur_default, cur_default)
         if (normalize_type(cur_type) != normalize_type(exp_type)
             or cur_default != normalized_default
             or cur_nullable != exp_nullable
             or cur_auto_inc != exp_auto_inc):
-          # print(f'    default   {cur_default} > {normalized_default}')
-          # print(f'    nullable  {cur_nullable} > {exp_nullable}')
-          # print(f'    type      {cur_type} > {exp_type}')
-          # print(f'    auto_inc  {cur_auto_inc} > {exp_auto_inc}')
-          # print('    ---' * 5)
           execute(stmt)
-
-    # Удаление лишних колонок
     extra_columns = set(current_by_name) - set(expected_by_name)
     for col in extra_columns:
       execute(f"DROP COLUMN {col}")
 
 
+# Основная функция проверки структуры БД
 def check_structure():
   def filter_type(type_name):
     return str(type_name).split('(')[0]
@@ -242,30 +274,29 @@ def check_structure():
       return 'CURRENT_TIMESTAMP'
     return str(default)
 
+  db_type = config['db']['url'].split(':')[0].split('+')[0]
   update_struct_function = {
     'sqlite': update_struct_sqlite,
     'mysql': update_struct_mysql,
-  }.get(config['db']['url'].split(':')[0].split('+')[0], update_struct_default)
+    'postgresql': update_struct_postgres,
+  }.get(db_type, update_struct_default)
 
   inspector = inspect(engine)
   for table_name in Base.metadata.tables:
-    # Получаем текущие столбцы из БД
-    existing_columns = {(col['name'], filter_type(col['type']), col['default'])
-                        for col in inspector.get_columns(table_name)}
+    existing_columns = {(col['name'], filter_type(col['type']), col['default']) for col in
+                        inspector.get_columns(table_name)}
     existing_columns = {(col[0], col[1], get_default_value(col[2], col[1])) for col in existing_columns}
-
-    # Получаем ожидаемые столбцы из модели
-    expected_columns = {(col.name, filter_type(col.type), get_default_value(col.default),
-                         col.nullable, col.autoincrement == True)
-                        for col in Base.metadata.tables[table_name].columns}
+    expected_columns = {
+      (col.name, filter_type(col.type), get_default_value(col.default), col.nullable, col.autoincrement == True) for col
+      in Base.metadata.tables[table_name].columns}
     expected_columns = {(col[0], col[1], get_default_value(col[2], col[1]), col[3], col[4]) for col in expected_columns}
-    session = SessionLocal()
 
-    # Сравниваем
     if existing_columns != expected_columns:
-      print(f"🔧 Изменения в структуре таблицы {table_name}")
+      print(f"\U0001f527 Изменения в структуре таблицы {table_name}")
       update_struct_function(table_name, expected_columns, existing_columns, inspector)
 
+
+# Инициализация моделей, создание таблиц и проверка структуры
 
 def init_db(app: FastAPI):
   for file in os.listdir('db_models'):
@@ -283,12 +314,3 @@ def init_db(app: FastAPI):
 
   check_structure()
   print('🔧 Проверка структуры БД завершена')
-
-
-# Зависимость для получения сессии
-def db_session():
-  session = SessionLocal()
-  try:
-    return session
-  finally:
-    session.close()
