@@ -1,6 +1,5 @@
 <template>
   <v-card flat>
-    <m-icon code="cellphone-basic"/>
     <v-row>
       <v-col cols="12" md="3">Всего иконок в базе: {{ icons.length }}</v-col>
       <v-col cols="12" md="3">Всего иконок в конфиге: {{ (config?.icons || []).length }}</v-col>
@@ -8,6 +7,10 @@
       <v-col cols="12" md="3">Отфильтрованно иконок: {{ filteredIcons.length }}</v-col>
     </v-row>
     <v-row class="mb-4" align="center">
+      <v-col cols="12" md="3">
+        <v-text-field v-model="search" label="Поиск" prepend-icon="mdi-magnify" clearable density="compact"
+                      hide-details/>
+      </v-col>
       <v-col cols="12" md="3">
         <v-select
           v-model="dir_name"
@@ -17,10 +20,6 @@
           density="compact"
           hide-details
         />
-      </v-col>
-      <v-col cols="12" md="3">
-        <v-text-field v-model="search" label="Поиск" prepend-icon="mdi-magnify" clearable density="compact"
-                      hide-details/>
       </v-col>
       <v-col cols="12" md="1">
         <v-select
@@ -75,7 +74,7 @@
     >
       <template #item.name="{ item }">
         <div class="d-flex align-center gap-2">
-          <m-icon :code="item.name" :folder="item.folder" :type="item.defined ? 'font' : 'svg'" size="24"/>
+          <m-icon :code="item.name" :folder="item.folder" :type="item.defined ? 'font' : 'svg'" size="42"/>
           <span>{{ item.name }}</span>
         </div>
       </template>

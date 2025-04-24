@@ -5,6 +5,9 @@ from datetime import datetime
 from shutil import copyfile
 from xml.etree import ElementTree as ET
 from utils.configs import config
+from svgpathtools import parse_path, svg2paths
+import tempfile
+import textwrap
 
 from fastapi import (
   APIRouter, FastAPI, Depends, UploadFile, File, HTTPException, Body
@@ -56,6 +59,8 @@ class IconConfigManager:
   def read_config_csv(self):
     import csv
     result = []
+    if not os.path.exists(self.config_csv_path):
+      return []
     with open(self.config_csv_path, encoding="utf-8") as f:
       reader = csv.DictReader(f)
       for row in reader:
@@ -124,50 +129,110 @@ class IconConfigManager:
     return css
 
   def generate_fonts(self):
+    import shutil
+    from xml.etree import ElementTree as ET
+
     config = self.read_config_csv()
     font_name = self.get_font_name()
-    script = f'''
-import fontforge
-import os
-import csv
-icons_base = r"{self.fonts_folder}"
-output_path = r"{self.output_path}"
-csv_path = r"{self.csv_path}"
 
-font = fontforge.font()
-font.encoding = "UnicodeFull"
-font.fontname = "{font_name}"
-font.fullname = "{font_name}"
-font.familyname = "{font_name}"
+    tmp_svg_dir = tempfile.mkdtemp()
+    print(f"Temporary SVG directory: {tmp_svg_dir}")
 
-codepoint = {CODEPOINT_START}
-mappings = []
+    def normalize_svg_path(input_path, output_path):
+      paths, attributes = svg2paths(input_path)
+      if not paths:
+        return False
 
-with open(r"{self.config_csv_path}", encoding="utf-8") as f:
-  reader = csv.DictReader(f)
-  for row in reader:
-    name = row['name']
-    folder = row['folder']
-    path = os.path.join(icons_base, 'icons', folder, name + '.svg')
-    if not os.path.exists(path):
-      continue
-    glyph = font.createChar(codepoint, name)
-    glyph.importOutlines(path)
-    glyph.width = 1000
-    mappings.append((codepoint, name))
-    codepoint += 1
+      try:
+        # Получаем bbox всех path'ов
+        xmin, xmax, ymin, ymax = None, None, None, None
+        for path in paths:
+          pxmin, pxmax, pymin, pymax = path.bbox()
+          if xmin is None:
+            xmin, xmax, ymin, ymax = pxmin, pxmax, pymin, pymax
+          else:
+            xmin = min(xmin, pxmin)
+            xmax = max(xmax, pxmax)
+            ymin = min(ymin, pymin)
+            ymax = max(ymax, pymax)
 
-font.generate(os.path.join(output_path, f"{font_name}.ttf"))
-font.generate(os.path.join(output_path, f"{font_name}.woff"))
-font.generate(os.path.join(output_path, f"{font_name}.woff2"))
-font.generate(os.path.join(output_path, f"{font_name}.eot"))
-font.generate(os.path.join(output_path, f"{font_name}.svg"))
+        width = xmax - xmin
+        height = ymax - ymin
 
-with open(csv_path, "w", encoding="utf-8") as f:
-  f.write("codepoint,name,unicode\\n")
-  for code, name in mappings:
-    f.write(f"{{code}},{{name}},\\\\u{{code:04x}}\\n")
-'''
+        # Центрирование по оси X
+        shift_x = -xmin
+        shift_y = -ymin
+
+        # Преобразуем все path'ы
+        d = ""
+        for path in paths:
+          path = path.translated(complex(shift_x, shift_y))
+          d += path.d()
+
+        svg_elem = ET.Element("svg", xmlns="http://www.w3.org/2000/svg",
+                              viewBox=f"0 0 {int(width)} {int(height)}")
+        g_elem = ET.SubElement(svg_elem, "g", transform=f"scale(1 -1) translate(0 -{int(height)})")
+        ET.SubElement(g_elem, "path", d=d)
+
+        tree = ET.ElementTree(svg_elem)
+        tree.write(output_path, encoding="utf-8", xml_declaration=True)
+        return True
+      except Exception as e:
+        print(f"Failed to normalize {input_path}: {e}")
+        return False
+
+    mappings = []
+    codepoint = CODEPOINT_START
+
+    for row in config:
+      name = row['name']
+      folder = row['folder']
+      src_path = os.path.join(self.icons_path, folder, f"{name}.svg")
+      dst_path = os.path.join(tmp_svg_dir, f"{name}.svg")
+      if not os.path.exists(src_path):
+        continue
+      if not normalize_svg_path(src_path, dst_path):
+        continue
+      mappings.append((codepoint, name, dst_path))
+      codepoint += 1
+
+    # Генерация fontforge-скрипта
+    script = textwrap.dedent(f'''
+        import fontforge
+        import os
+
+        font = fontforge.font()
+        font.encoding = "UnicodeFull"
+        font.fontname = "{font_name}"
+        font.fullname = "{font_name}"
+        font.familyname = "{font_name}"
+
+        codepoint = {CODEPOINT_START}
+        icons_dir = r"{tmp_svg_dir}"
+
+        mappings = {[(cp, name) for cp, name, _ in mappings]}
+
+        for code, name in mappings:
+            path = os.path.join(icons_dir, name + ".svg")
+            if not os.path.exists(path):
+                continue
+            glyph = font.createChar(code, name)
+            glyph.importOutlines(path, ('removeoverlap', 'correctdir'))
+            glyph.width = 1000
+
+        output_path = r"{self.output_path}"
+        font.generate(os.path.join(output_path, "{font_name}.ttf"))
+        font.generate(os.path.join(output_path, "{font_name}.woff"))
+        font.generate(os.path.join(output_path, "{font_name}.woff2"))
+        font.generate(os.path.join(output_path, "{font_name}.eot"))
+        font.generate(os.path.join(output_path, "{font_name}.svg"))
+
+        with open(r"{self.csv_path}", "w", encoding="utf-8") as f:
+            f.write("codepoint,name,unicode\\n")
+            for code, name in mappings:
+                f.write(f"{{code}},{{name}},\\\\u{{code:04x}}\\n")
+    ''')
+
     process = subprocess.Popen(
       ["fontforge", "-script", "/dev/stdin"],
       stdin=subprocess.PIPE,
@@ -176,8 +241,11 @@ with open(csv_path, "w", encoding="utf-8") as f:
       text=True
     )
     stdout, stderr = process.communicate(script)
+    shutil.rmtree(tmp_svg_dir)
+
     if process.returncode != 0:
-      raise HTTPException(status_code=500, detail=stderr)
+      raise HTTPException(status_code=500, detail=f"FontForge error:\n{stderr}")
+
     self.log("generate fonts")
 
   def get_icon_list(self):
@@ -259,7 +327,6 @@ with open(csv_path, "w", encoding="utf-8") as f:
 
   def _clean_svg_for_font(self, file_stream_or_text, dest_path=None, calc_viewBox=False, calc_transform=False):
     from io import StringIO
-    from svgpathtools import parse_path
 
     if isinstance(file_stream_or_text, str):
       file_stream = StringIO(file_stream_or_text)
@@ -478,35 +545,47 @@ with open(csv_path, "w", encoding="utf-8") as f:
     }
 
   def auto_add_icons_from_names(self, icon_names: list[str]) -> int:
-    if not config["auto_icon_finder"]:
+    if not config.get("auto_icon_finder", True):
       return 0
 
     config_data = self.read_config_csv()
     existing = set((row["folder"], row["name"]) for row in config_data)
     to_add = []
 
-    for name in icon_names:
+    for full_name in icon_names:
+      if '/' in full_name:
+        folder, name = full_name.split('/', 1)
+        path = os.path.join(self.icons_path, folder, f"{name}.svg")
+        if os.path.exists(path):
+          key = (folder, name)
+          if key not in existing:
+            to_add.append({"folder": folder, "name": name})
+            existing.add(key)
+        continue
+
+      # Поиск по всем папкам
       for root, _, files in os.walk(self.icons_path):
         for file in files:
           if not file.lower().endswith(".svg"):
             continue
           fname = os.path.splitext(file)[0]
-          if fname != name:
+          if fname != full_name:
             continue
           folder = os.path.relpath(root, self.icons_path)
           key = (folder, fname)
           if key not in existing:
             to_add.append({"folder": folder, "name": fname})
             existing.add(key)
-          break  # нашли иконку — не продолжаем поиск по другим файлам
+          break
         else:
-          continue  # не нашли — идём дальше
-        break  # нашли — прерываем os.walk
+          continue
+        break
 
-    self.log('auto add icons', {"count": len(to_add),
-                                "icons": [f"{folder}/{name}" for folder, name in to_add],
-                                "existing": [f"{folder}/{name}" for folder, name in existing],
-                                })
+    self.log('auto add icons', {
+      "count": len(to_add),
+      "icons": [f"{row['folder']}/{row['name']}" for row in to_add]
+    })
+
     if to_add:
       config_data.extend(to_add)
       self.write_config_csv(config_data)
