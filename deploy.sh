@@ -81,7 +81,8 @@ while read -r status file; do
             ;;
         D)
             echo "  + new: $file" | tee -a "$LOG_FILE"
-            cp "$TMP_DIR/$file" "$CURRENT_DIR/$file"
+            mkdir -p "$(dirname "$CURRENT_DIR/$file")"
+            cp -R "$TMP_DIR/$file" "$CURRENT_DIR/$file"
             ;;
         "??")
             if [[ $file == store/* || $file == backup/* ]]; then
