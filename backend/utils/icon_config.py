@@ -5,7 +5,7 @@ from datetime import datetime
 from shutil import copyfile
 from xml.etree import ElementTree as ET
 from utils.configs import config
-from svgpathtools import parse_path, svg2paths
+from svgpathtools import parse_path, svg2paths, svg2paths2
 import tempfile
 import textwrap
 
@@ -139,12 +139,15 @@ class IconConfigManager:
     print(f"Temporary SVG directory: {tmp_svg_dir}")
 
     def normalize_svg_path(input_path, output_path):
-      paths, attributes = svg2paths(input_path)
+      from svgpathtools import svg2paths2
+      from xml.etree.ElementTree import Element, SubElement, ElementTree
+
+      paths, attributes, svg_attr = svg2paths2(input_path)
       if not paths:
         return False
 
       try:
-        # Получаем bbox всех path'ов
+        # Получаем bbox
         xmin, xmax, ymin, ymax = None, None, None, None
         for path in paths:
           pxmin, pxmax, pymin, pymax = path.bbox()
@@ -158,27 +161,38 @@ class IconConfigManager:
 
         width = xmax - xmin
         height = ymax - ymin
+        if width == 0 or height == 0:
+          return False
 
-        # Центрирование по оси X
-        shift_x = -xmin
-        shift_y = -ymin
+        target_size = 1000
+        scale = target_size / max(width, height)
 
-        # Преобразуем все path'ы
+        # Центрирование внутри 1000x1000 box
+        box_width = width * scale
+        box_height = height * scale
+        shift_x = (target_size - box_width) / 2 - xmin * scale
+        shift_y = (target_size - box_height) / 2 - ymin * scale
+
         d = ""
         for path in paths:
-          path = path.translated(complex(shift_x, shift_y))
-          d += path.d()
+          subpaths = path.continuous_subpaths()
+          for sp in subpaths:
+            if not sp.isclosed():
+              continue
+            if sp.area() <= 0:
+              sp = sp.reversed()
+            transformed = sp.scaled(scale).translated(complex(shift_x, shift_y))
+            d += transformed.d()
 
-        svg_elem = ET.Element("svg", xmlns="http://www.w3.org/2000/svg",
-                              viewBox=f"0 0 {int(width)} {int(height)}")
-        g_elem = ET.SubElement(svg_elem, "g", transform=f"scale(1 -1) translate(0 -{int(height)})")
-        ET.SubElement(g_elem, "path", d=d)
+        # SVG выход
+        svg_elem = Element("svg", xmlns="http://www.w3.org/2000/svg", viewBox=f"0 0 {target_size} {target_size}")
+        g_elem = SubElement(svg_elem, "g", transform=f"scale(1 -1) translate(0 -{target_size})")
+        SubElement(g_elem, "path", d=d)
 
-        tree = ET.ElementTree(svg_elem)
-        tree.write(output_path, encoding="utf-8", xml_declaration=True)
+        ElementTree(svg_elem).write(output_path, encoding="utf-8", xml_declaration=True)
         return True
       except Exception as e:
-        print(f"Failed to normalize {input_path}: {e}")
+        print(f"[normalize_svg_path] Error: {e}")
         return False
 
     mappings = []
@@ -219,6 +233,8 @@ class IconConfigManager:
             glyph = font.createChar(code, name)
             glyph.importOutlines(path, ('removeoverlap', 'correctdir'))
             glyph.width = 1000
+            glyph.removeOverlap()
+            glyph.correctDirection()
 
         output_path = r"{self.output_path}"
         font.generate(os.path.join(output_path, "{font_name}.ttf"))
@@ -545,7 +561,7 @@ class IconConfigManager:
     }
 
   def auto_add_icons_from_names(self, icon_names: list[str]) -> int:
-    if not config.get("auto_icon_finder", True):
+    if not config["auto_icon_finder"]:
       return 0
 
     config_data = self.read_config_csv()

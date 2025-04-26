@@ -37,3 +37,7 @@ class Ports(BaseModelDB):
   @declared_attr
   def device_id(cls):
     return Column(Integer, ForeignKey('devices.id'), nullable=False)
+
+  @declared_attr
+  def metadata_id(cls):
+    return Column(Integer, ForeignKey('port_metadata.id'), nullable=True)

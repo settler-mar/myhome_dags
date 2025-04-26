@@ -12,7 +12,7 @@
 
   <img
     v-else-if="resolvedType === 'img'"
-    :src="`/api/fonts/icons/${props.folder || 'custom'}/${resolvedCode}.svg`"
+    :src="`/api/fonts/icons/${resolvedFolder}/${resolvedCode}.svg`"
     :alt="ariaLabel || resolvedCode"
     :class="['inline-icon', { 'm-icon--disabled': disabled }]"
     :style="[dimensionStyle, inlineStyle]"
@@ -37,7 +37,6 @@ import {ref, watchEffect, computed, onMounted} from 'vue'
 import {useIconStore} from '@/store/iconStore'
 import {secureFetch} from '@/services/fetch'
 import {useAttrs} from 'vue'
-
 
 const props = defineProps({
   icon: String,
@@ -65,7 +64,19 @@ const props = defineProps({
 const attrs = useAttrs()
 const store = useIconStore()
 
-const resolvedCode = computed(() => props.code || props.icon?.replace(/^mdi-/, '') || '')
+// Авторазбор icon="folder/name" на folder + name
+const iconParts = computed(() => {
+  const input = props.code || props.icon || ''
+  const [folder, ...rest] = input.replace(/^mdi-/, '').split('/')
+  const name = rest.length ? rest.join('/') : folder
+  return {
+    folder: rest.length ? folder : props.folder || null,
+    name,
+  }
+})
+
+const resolvedCode = computed(() => iconParts.value.name)
+const resolvedFolder = computed(() => props.folder || iconParts.value.folder)
 
 const resolvedType = computed(() => {
   if (props.type) return props.type
@@ -95,13 +106,6 @@ const extractSizeClass = () => {
   return vuetifySizeMap[key] || undefined
 }
 
-const extractSize = (cls) => {
-  if (!cls) return undefined
-  const classes = Array.isArray(cls) ? cls : typeof cls === 'string' ? cls.split(' ') : Object.keys(cls)
-  const match = classes.find(c => c.startsWith('v-icon--size-'))
-  const sz = match?.replace('v-icon--size-', '')
-  return vuetifySizeMap[sz] || undefined
-}
 
 const resolveSize = () => {
   if (props.xSmall) return vuetifySizeMap['x-small']
@@ -118,35 +122,29 @@ const resolveSize = () => {
 }
 
 const resolvedSize = computed(() => resolveSize())
-
-
 const fontStyle = computed(() => `font-size: ${resolvedSize.value}`)
-
 const dimensionStyle = computed(() => ({
   width: resolvedSize.value,
   height: resolvedSize.value,
 }))
-
 const inlineStyle = computed(() => ({
   opacity: props.disabled ? 0.4 : props.opacity ?? undefined,
   cursor: props.disabled ? 'not-allowed' : undefined,
 }))
-
 const iconClass = computed(() => [
   props.class,
   'inline-icon',
   `icon-${resolvedCode.value}`,
-  props.folder && `icon-${props.folder}`,
+  resolvedFolder.value && `icon-${resolvedFolder.value}`,
   props.color && `text-${props.color}`,
   {'me-2': props.start, 'ms-2': props.end, 'm-icon--disabled': props.disabled},
 ])
 
 const rawSvg = ref('')
-
 watchEffect(async () => {
   if (resolvedType.value === 'svg') {
     try {
-      const res = await secureFetch(`/api/fonts/icons/${props.folder || 'custom'}/${resolvedCode.value}.svg`)
+      const res = await secureFetch(`/api/fonts/icons/${resolvedFolder.value}/${resolvedCode.value}.svg`)
       rawSvg.value = await res.text()
     } catch {
       rawSvg.value = ''
@@ -159,7 +157,11 @@ onMounted(async () => {
     await store.loadConfig()
     const exists = store.config.find(i => i.name === resolvedCode.value)
     if (!exists) {
-      await store.add_to_notfound(resolvedCode.value)
+      if (resolvedFolder.value) {
+        await store.add_to_notfound(`${resolvedFolder.value}/${resolvedCode.value}`)
+      } else {
+        await store.add_to_notfound(`${resolvedCode.value}`)
+      }
     }
   }
 })

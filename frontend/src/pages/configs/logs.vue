@@ -113,7 +113,7 @@
           ></v-select>
           <v-select
             v-model="filters.filename"
-            :items="parsedLogs.map(log => log.file.name).filter((v, i, a) => a.indexOf(v) === i)"
+            :items="parsedLogs.map(log => log?.file?.name).filter((v, i, a) => a.indexOf(v) === i)"
             label="Файл"
             max-width="500"
             clearable
@@ -276,7 +276,7 @@ const parsedLogs = computed(() => {
       data.su = true
       log_parts.shift()
     }
-    if (log_parts[1].includes('.py:')) {
+    if (log_parts[1].includes('.py:') || log_parts[1].includes('/:')) {
       data.func = log_parts.shift()
       const location = (log_parts.shift() || '').split(':')
       data.file = {name: location[0], line: location[1] || ''}

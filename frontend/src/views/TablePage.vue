@@ -57,28 +57,35 @@
               >
                 {{ item[column.key] }}
               </v-chip>
-              <v-icon v-else-if="isIconColumn(column, item[column.key])">
-                {{ item[column.key] }}
-              </v-icon>
+              <span v-else-if="isIconColumn(column, item[column.key])">
+                <m-icon :icon="item[column.key]" size="20" class="me-2"/>
+              </span>
               <v-icon
                 v-else-if="isBooleanColumn(column, item[column.key])"
                 :color="item[column.key] ? 'green' : 'grey'"
               >
                 {{ item[column.key] ? 'mdi-check-circle' : 'mdi-close-circle' }}
               </v-icon>
+              <MyFormField
+                v-else-if="column?.element?.type === 'alias'"
+                v-model="item[column.key]"
+                :field="column"
+                :only_value="true"
+                :disabled="true"
+              />
               <span v-else-if="isLinkColumn(column, item[column.key])">
                 <a :href="item[column.key]" target="_blank">{{ item[column.key] }}</a>
               </span>
               <span v-else-if="isDateColumn(column, item[column.key])">
                 {{ formatDate(item[column.key]) }}
               </span>
+              <span v-else-if="column?.id === '__actions'">
+                <v-btn icon="mdi-pencil" @click.stop="openEditDialog(item)" size="small" title="Редактировать"/>
+                <v-btn icon="mdi-delete" @click.stop="openDeleteDialog(item)" size="small" title="Удалить"/>
+              </span>
               <span v-else>
                 {{ item[column.key] }}
               </span>
-            </td>
-            <td>
-              <v-btn icon="mdi-pencil" @click.stop="openEditDialog(item)" size="small" title="Редактировать"/>
-              <v-btn icon="mdi-delete" @click.stop="openDeleteDialog(item)" size="small" title="Удалить"/>
             </td>
           </tr>
         </template>
@@ -181,7 +188,8 @@ export default {
     },
     columns: {
       get() {
-        if (!this._columns) {
+        // if (!this._columns) {
+        if (1) {
           this._columns = this.structure.map(item => ({
             id: item.name,
             title: item.name,
@@ -189,6 +197,7 @@ export default {
             align: item.align || 'left',
             sortable: item.sortable ?? true,
             show: true,
+            element: item?.element,
           }))
           this._columns.push({
             id: '__actions',
@@ -202,6 +211,7 @@ export default {
         return this._columns
       },
       set(value) {
+        alert('Сохраните настройки колонок')
         this._columns = value
       },
     },
@@ -215,7 +225,7 @@ export default {
       return column.key.toLowerCase().includes('color') && typeof value === 'string' && value.startsWith('#')
     },
     isIconColumn(column, value) {
-      return column.key.toLowerCase().includes('icon') && typeof value === 'string' && value.startsWith('mdi-')
+      return column.key.toLowerCase().startsWith('icon') && typeof value === 'string'
     },
     isBooleanColumn(column, value) {
       return typeof value === 'boolean'

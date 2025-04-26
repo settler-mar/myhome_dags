@@ -122,6 +122,7 @@ export const useIconStore = defineStore("iconStore", {
     },
 
     async add_to_notfound(name: string) {
+      if (!name) return
       notFoundBuffer.add(name)
       if (this.configLoaded) this._flushNotFound()
     },
@@ -146,8 +147,13 @@ export const useIconStore = defineStore("iconStore", {
       if (notFoundTimer) clearTimeout(notFoundTimer)
       notFoundTimer = setTimeout(async () => {
         if (!notFoundBuffer.size) return
-        const payload = Array.from(notFoundBuffer)
+        const payload = Array.from(notFoundBuffer).filter(icon => {
+          const iconConfig = this.config.find(item => item.name === icon)
+          return iconConfig && iconConfig.notfound
+        })
         notFoundBuffer.clear()
+        if (!payload.length) return
+        console.log('notFoundBuffer', notFoundBuffer, payload)
         const res = await secureFetch("/api/fonts/icon/notfound", {
           method: "POST",
           body: {'icons': payload},

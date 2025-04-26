@@ -82,7 +82,9 @@ class ConnectionManager:
                     value: str = None,
                     class_name: str = None,
                     value_raw: str = None,
-                    direction: str = None):
+                    direction: str = None,
+                    action: str = None,
+                    _type="log"):
     """
     Send log message to all connected clients
     level: 'info', 'warning', 'error', 'debug', 'value'
@@ -93,7 +95,7 @@ class ConnectionManager:
       value = value['new_value'][0]
     class_name = class_name or (dag and dag.__class__.__name__)
     data = {
-      "type": "log",
+      "type": _type,
       "level": level,
       "permission": permission,
       "message": text or message,
@@ -107,6 +109,7 @@ class ConnectionManager:
       "class_name": str(class_name) if class_name else None,
       "value": value,
       "value_raw": value_raw,
+      "action": action,
       "ts": datetime.now().timestamp()
     }
     data = {k: v for k, v in data.items() if v is not None}

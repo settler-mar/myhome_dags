@@ -22,9 +22,8 @@ export const useTableStore = defineStore("tables", {
         await this.loadTableData(tableModel)
         return
       }
-      console.log('reloadTableData', tableModel)
       // load this table data only
-      this.tables[tableModel].items = [];
+      // this.tables[tableModel].items = [];
       if (this.tables[tableModel].permissions.view) {
         try {
           const data = await secureFetch(`/api/${tableModel}/`)
@@ -38,7 +37,6 @@ export const useTableStore = defineStore("tables", {
     },
     async loadTableData(tableModel) {
       const messageStore = useMessageStore();
-      console.log('loadTableData', tableModel)
       if (this.tables[tableModel] === undefined) {
         this.tables[tableModel] = {};
       } else {
@@ -69,7 +67,6 @@ export const useTableStore = defineStore("tables", {
             const data = await secureFetch(`/api/${tableModel}/`)
             const data_data = await data.json();
             this.tables[tableModel].items = data_data;
-            console.log('data_data', data_data)
           }
         }
       } catch (e) {

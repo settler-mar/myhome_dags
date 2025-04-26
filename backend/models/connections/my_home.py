@@ -24,6 +24,8 @@ import os
 import requests
 import hashlib
 from utils.google_connector import GoogleConnector
+from ipaddress import ip_address, AddressValueError
+from fastapi.responses import JSONResponse
 
 
 async def fetch_info(session, ip, semaphore):
@@ -36,6 +38,7 @@ async def fetch_info(session, ip, semaphore):
           data = json.loads(text)
         else:
           data = {"error": f"JSON decode error", "raw_response": text}
+        data['ip'] = ip
         return ip, data
     except Exception as e:
       return ip, {"error": str(e)}
@@ -145,19 +148,248 @@ class MyHomeClass:
   _devices: dict = {}
 
   _save_config_hour = 1
-  _save_logs_period = timedelta(seconds=60 * 60 * 2)
+  _save_logs_period = 2
   _save_logs_hour = 1
   _save_logs_minute = 1
+
+  params = {
+    'save_config_hour': {
+      'type': 'int',
+      'default': 1,
+      'description': 'Час сохранения конфигурации',
+      'min': 0,
+      'max': 23,
+    },
+    'save_logs_period': {
+      'type': 'int',
+      'default': 2,
+      'description': 'Период сохранения логов (часы)',
+      'min': 1,
+      'max': 24,
+    },
+    '_save_logs_hour': {
+      'type': 'int',
+      'default': 1,
+      'description': 'Час сохранения логов',
+      'min': 0,
+      'max': 23,
+    },
+    'save_logs_minute': {
+      'type': 'int',
+      'default': 2,
+      'description': 'Минута сохранения логов',
+      'min': 0,
+      'max': 59,
+    },
+    'gsheet': {
+      'type': 'str',
+      'default': None,
+      'description': 'ID Google Sheet для сохранения логов',
+    }
+  }
+
+  devices_params = {
+    'code': {
+      'readonly': True,
+    },
+    'model': {
+      'readonly': True,
+    },
+    'vendor': {
+      'readonly': True,
+    },
+    'type': {
+      'readonly': True,
+    },
+    'params.backup_config': {
+      'type': 'bool',
+      'default': True,
+      'description': 'Сохранять конфигурацию',
+    },
+    'params.save_logs': {
+      'type': 'bool',
+      'default': True,
+      'description': 'Сохранять логи',
+    },
+    'params.remove_logs': {
+      'type': 'bool',
+      'default': True,
+      'description': 'Удалять логи после сохранения',
+    },
+    'params.log_save_method': {
+      'type': 'list',
+      'default': 'gsheet',
+      'description': 'Метод сохранения логов',
+      'options': {
+        'local_save': 'На сервере',
+        'gsheet': 'Google Sheets',
+      },
+    },
+    'params.ip': {
+      'type': 'str',
+      'default': None,
+      'description': 'IP адрес устройства',
+      'readonly': True,
+    },
+    'params.mac': {
+      'type': 'str',
+      'default': None,
+      'description': 'MAC адрес устройства',
+      'readonly': True,
+    },
+    'params.ssid': {
+      'type': 'str',
+      'default': None,
+      'description': 'SSID устройства',
+      'readonly': True,
+    },
+    'params.flash_date': {
+      'type': 'str',
+      'default': None,
+      'description': 'Дата прошивки устройства',
+      'readonly': True,
+    },
+    'params.version': {
+      'type': 'str',
+      'default': None,
+      'description': 'Версия прошивки устройства',
+      'readonly': True,
+    },
+  }
+
+  rules = {
+    "allow_device_edit": True,
+    "allow_device_add": False,
+    "allow_device_delete": True,
+    "allow_port_edit": True,
+    "allow_port_add": True,
+    "allow_port_delete": True
+  }
+
+  description = "Модули на основе проекта MyHome. Поддерживает Wi-Fi устройства на основе ESP8266 и ESP32."
+  actions = [
+    {
+      "name": "Устройства MyHome",
+      "type": "table_modal",
+      "scope": "connection",
+      "icon": "mdi-router-wireless",
+      "endpoint": "/api/live/connections/myhome/scan",
+      "structure": [
+        {"name": "ip", "title": "IP адрес"},
+        {"name": "mac", "title": "MAC адрес"},
+        {"name": "name", "title": "Имя"},
+        {"name": "version", "title": "Версия"},
+        {"name": "chip_id", "title": "Chip ID"},
+        {"name": "flash_chip_revision", "title": "Тип"},
+        {"name": "flash_chip_speed", "title": "Скорость"},
+        {"name": "flash_date", "title": "Дата прошивки"},
+        {"name": "config_name", "title": "Имя конфигурации"},
+        {"name": "flash_counter", "title": "Счетчик прошивок"},
+        {"name": "flash_heap", "title": "Память"},
+        {"name": "fs_name", "title": "Файловая система"},
+        {"name": "run_time", "title": "Время работы"},
+        {"name": "ssid", "title": "SSID"},
+        {"name": "rssi", "title": "RSSI"},
+      ],
+      "actions": [
+        {
+          "name": "Добавить",
+          "type": "request",
+          "method": "GET",
+          "endpoint": "/api/live/connections/myhome/{connection_id}/{ip}/add",
+          "update_after": "table.devices|table.ports",
+          "icon": "mdi-plus",
+        },
+        {
+          "name": "Заменить",
+          "type": "request",
+          "method": "GET",
+          "endpoint": "/api/live/connections/myhome/{connection_id}/{ip}/replace/{device_id}",
+          "update_after": "table.devices|table.ports",
+          "icon": "mdi-unfold-more-vertical",
+          "input": {
+            "device_id": {
+              "name": "device_id",
+              "type": "text",
+              "description": "ID устройства",
+              "required": True,
+              "default": None,
+            }
+          }
+        }
+      ],
+      "refreshable": True
+    },
+    {
+      "name": "Добавить устройство по IP",
+      "type": "request",
+      "endpoint": "/api/live/connections/myhome/{connection_id}/{ip}/add",
+      "method": "GET",
+      "icon": "mdi-plus",
+      "scope": "connection",
+      "input":
+        {
+          "ip": {"name": "ip",
+                 "type": "text",
+                 "description": "IP адрес устройства",
+                 "required": True,
+                 "default": None,
+                 }
+        },
+      "update_after": "table.devices|table.ports",
+    },
+    {
+      "name": "Заменить",
+      "type": "request",
+      "method": "GET",
+      "endpoint": "/api/live/connections/myhome/{connection_id}/{ip}/replace/{device_id}",
+      "update_after": "table.devices|table.ports",
+      "icon": "mdi-unfold-more-vertical",
+      "input": {
+        "ip": {"name": "ip",
+               "type": "text",
+               "description": "IP адрес устройства",
+               "required": True,
+               "default": None,
+               },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "description": "ID устройства",
+          "required": True,
+          "default": None,
+        }
+      }
+    },
+    {
+      "name": "Обновить устройство",
+      "type": "request",
+      "endpoint": "/api/live/connections/myhome/{connection_id}/{ip}/add",
+      "method": "GET",
+      "icon": "mdi-refresh",
+      "scope": "device",
+      "update_after": "table.devices|table.ports",
+    },
+    {
+      "name": "ip",
+      "type": "state",
+      "scope": "device",
+      "color": "orange",
+      "icon": "mdi-ip-network",
+      "key": "ip",  # from device[params][ip]
+      "show_if_empty": False
+    }
+  ]
 
   def __init__(self, **kwargs):
     self._id = kwargs.get('id', None)
 
     self.sheet = kwargs.get('params', {}).get('gsheet')
 
-    self._save_config_hour = kwargs.get('params', {}).get('save_config_hour', self._save_config_hour)
-    self._save_logs_period = kwargs.get('params', {}).get('save_logs_period', self._save_logs_period)
-    self._save_logs_hour = kwargs.get('params', {}).get('save_logs_hour', self._save_logs_hour)
-    self._save_logs_minute = kwargs.get('params', {}).get('save_logs_minute', self._save_logs_minute)
+    self._save_config_hour = int(kwargs.get('params', {}).get('save_config_hour', self._save_config_hour))
+    self._save_logs_period = int(kwargs.get('params', {}).get('save_logs_period', self._save_logs_period))
+    self._save_logs_hour = int(kwargs.get('params', {}).get('save_logs_hour', self._save_logs_hour))
+    self._save_logs_minute = int(kwargs.get('params', {}).get('save_logs_minute', self._save_logs_minute))
 
     self.thread = threading.Thread(target=self._run, daemon=True)
     self.stop_event = threading.Event()
@@ -294,7 +526,7 @@ class MyHomeClass:
                                      second=0,
                                      microsecond=0)
     while base_time <= current_time:
-      base_time += self._save_logs_period
+      base_time += timedelta(hours=self._save_logs_period)
     return base_time
 
   def __del__(self):
@@ -319,7 +551,7 @@ class MyHomeClass:
     async with aiohttp.ClientSession() as session:
       tasks = [fetch_info(session, ip, semaphore) for ip in ip_list]
       results = await asyncio.gather(*tasks)
-      return dict(results)
+      return [value[1] for value in results]
 
   def add_device(self, device):
     print('myhome add device', device)
@@ -367,73 +599,91 @@ def add_routes(app):
   @app.get("/api/live/connections/myhome/{connection_id}/{ip}/add",
            tags=["live/connections/myhome"],
            dependencies=[Depends(RoleChecker('admin'))])
+  @app.get("/api/live/connections/myhome/{connection_id}/{ip}/add",
+           tags=["live/connections/myhome"],
+           dependencies=[Depends(RoleChecker('admin'))])
   async def add_myhome_value(ip: str, connection_id: int, current_user: CurrentUser):
     """
     Добавить значение устройства по IP
     """
+    # Валидация IP-адреса
+    try:
+      ip_address(ip)
+    except Exception as e:
+      return JSONResponse({'error': f'Invalid IP address "{ip}"'}, 422)
+
     connection = get_connection(connection_id)
     if not connection:
-      return {"status": 'error', "message": 'Connector not found'}, 422
+      return {'error': f'Connection with id {connection_id} not found'}, 404
 
-    # get data from url = f"http://{ip}/values" and url = f"http://{ip}/info"
-    async with aiohttp.ClientSession() as session:
-      url = f"http://{ip}/values"
-      async with session.get(url) as response:
-        if response.status == 200:
-          data = await response.text()
+    timeout = aiohttp.ClientTimeout(sock_connect=5, total=10)
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+      try:
+        # Получение /values
+        url_values = f"http://{ip}/values"
+        async with session.get(url_values) as response:
+          if response.status != 200:
+            return JSONResponse({'error': f"Ошибка при запросе: {url_values}"}, 422)
+          text = await response.text()
           try:
-            values = json.loads(data)
+            values = json.loads(text)
           except json.JSONDecodeError as e:
-            data = {"error": f"JSON decode error: {str(e)}", "raw_response": data}
-            return data, 422
-        else:
-          data = {"error": f"Error: {response.status}"}
-          return data, 422
+            return JSONResponse({'error': f"Ошибка парсинга /values: {str(e)}"}, 422)
 
-      # get data from url = f"http://{ip}/info"
-      url = f"http://{ip}/info"
-      async with session.get(url) as response:
-        if response.status == 200:
-          data = await response.text()
+        # Получение /info
+        url_info = f"http://{ip}/info"
+        async with session.get(url_info) as response:
+          if response.status != 200:
+            return JSONResponse({'error': f"Ошибка при запросе: {url_info}"}, 422)
+          text = await response.text()
           try:
-            info = json.loads(data)
+            info = json.loads(text)
           except json.JSONDecodeError as e:
-            data = {"error": f"JSON decode error: {str(e)}", "raw_response": data}
-            return data, 422
-        else:
-          data = {"error": f"Error: {response.status}"}
-          return data, 422
+            return JSONResponse({'error': f"Ошибка парсинга /info: {str(e)}"}, 422)
 
-    # get device_id from db
-    db = db_session()
-    db_device = db.query(DbDevices).filter(DbDevices.code == info['chip_id']).first()
-    if db_device is None:
-      db_device = DbDevices()
-      db_device.code = info['chip_id']
-      db_device.name = info['name']
-      db_device.model = info['config_name']
+      except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        return JSONResponse({'error': f"Ошибка при запросе: {str(e)}"}, 422)
+
+    # Работа с БД
+    with db_session() as db:
+      db_device = db.query(DbDevices).filter(DbDevices.code == info['chip_id']).first()
+      if db_device is None:
+        db_device = DbDevices(
+          code=info['chip_id'],
+          name=info['name'],
+          model=info['config_name'],
+          updated_by=current_user.id,
+          created_by=current_user.id,
+          connection_id=connection_id,
+          location_id=None,
+          vendor='my_home',
+          params={'backup_config': True},
+          description='',
+        )
+        db.add(db_device)
+        db.commit()
+        db.refresh(db_device)
+
       db_device.updated_by = current_user.id
-      db_device.created_by = current_user.id
-      db_device.connection_id = connection_id
-      db_device.location_id = None
-      db_device.vendor = 'my_home'
-      db_device.params = {'backup_config': True}
-      db_device.description = ''
-      db.add(db_device)
+      db_device.vendor = info.get('fr_name', 'my_home')
+      db_device.params.update({
+        'ip': ip,
+        'mac': info.get('mac'),
+        'ssid': info.get('ssid'),
+        'flash_date': info.get('flash_date'),
+        'version': info.get('version'),
+        'save_logs': any(el for el in values if el.get('title') == "LOGS")
+      })
+      db_device.type = info.get('flash_chip_revision')
       db.commit()
       db.refresh(db_device)
 
-    db_device.updated_by = current_user.id
-    db_device.vendor = info['fr_name']
-    db_device.params['ip'] = ip
-    db_device.type = info['flash_chip_revision']
-    db_device.params['mac'] = info['mac']
-    db_device.params['ssid'] = info['ssid']
-    db_device.params['flash_date'] = info['flash_date']
-    db_device.params['version'] = info['version']
-    db_device.params['save_logs'] = any(el for el in values if el.get('title') == "LOGS")
-    db.commit()
-    db.refresh(db_device)
-    Devices().add_device(db_device.__dict__)
+      Devices().add_device(db_device.__dict__)
 
-    return {"status": "ok", "values": values, "info": info, 'current_user': current_user}, 200
+    return {
+      "status": "ok",
+      "values": values,
+      "info": info,
+      "current_user": current_user
+    }

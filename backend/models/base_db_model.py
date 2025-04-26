@@ -56,7 +56,22 @@ class BaseModelDB(Base):
       'template': '{name} ({id})',
       'key': 'id',
       'nullable': True
-    }
+    },
+    'metadata_id':{
+      'name': 'metadata',
+      'type': 'alias',
+      'table': 'port_metadata',
+      'template': '{name} ({id})',
+      'key': 'id',
+      'nullable': True
+    },
+    'device_id': {
+      'name': 'device',
+      'type': 'alias',
+      'table': 'devices',
+      'template': '{name} ({id})',
+      'key': 'id'
+    },
   }
   readonly_columns = ['id']
 
@@ -131,7 +146,6 @@ class BaseModelDB(Base):
 
   @classmethod
   def get_structure(cls):
-    # print('get_structure')
     parent_class = cls.__bases__[0]
     parents_struct = []
     class_struct = []

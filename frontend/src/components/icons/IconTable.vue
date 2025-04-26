@@ -93,6 +93,11 @@
     </v-data-table>
 
     <v-container fluid v-else-if="view === 'mini'">
+      <span>
+        Для копирования названия иконки зажмите <strong>Ctrl</strong> или <strong>Cmd</strong> и кликните по иконке.<br>
+        Также можно выделить иконку двойным кликом.<br>
+        Для выделения иконки кликните по ней.<br>
+      </span>
       <v-row dense>
         <v-col
           cols="2"
@@ -106,7 +111,8 @@
               class="d-flex align-center justify-center card-wrap"
               height="48"
               :color="localToggles[`${item.folder}/${item.name}`] ? 'primary' : undefined"
-              @click="toggleInline(item)"
+              @click="handleClick($event,item)"
+              @dblclick="copyToClipboard(item)"
             >
               <span class="card-dir">{{ item.folder }}</span>
               <m-icon :code="item.name" :folder="item.folder" :type="item.defined ? 'font' : 'svg'" size="32"/>
@@ -268,6 +274,14 @@ const toggleInline = (item) => {
   localToggles.value[key] = !localToggles.value[key]
 }
 
+const handleClick = (event, item) => {
+  if (event.ctrlKey || event.metaKey) {
+    copyToClipboard(item)
+  } else {
+    toggleInline(item)
+  }
+}
+
 const allSelectedOnPage = computed(() =>
   paginatedIcons.value.every(
     icon => localToggles.value[`${icon.folder}/${icon.name}`]
@@ -316,6 +330,16 @@ const applyConfig = async () => {
   store.reloadStyleCss()
   messageStore.addMessage({type: 'success', text: 'Изменения сохранены'})
 }
+
+const copyToClipboard = (item) => {
+  const fullName = `${item.folder}/${item.name}`
+  navigator.clipboard.writeText(fullName).then(() => {
+    messageStore.addMessage({
+      type: 'info',
+      text: `Скопировано: ${fullName}`,
+    })
+  })
+}
 </script>
 
 
@@ -331,6 +355,7 @@ const applyConfig = async () => {
   opacity: 0;
   transition: opacity 0.3s ease;
   color: white;
+  user-select: none;
 }
 
 .card-dir {
