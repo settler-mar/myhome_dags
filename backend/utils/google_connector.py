@@ -151,10 +151,10 @@ class GoogleConnector:
           existing_rows.add(tuple(row))
 
         inserted += len(chunk)
-        print(f"[GoogleConnector] Вставлен батч: {len(chunk)} строк")
+        print(f"[GoogleConnector][{page}] Вставлен батч: {len(chunk)} строк")
 
       if inserted == 0:
-        print(f"[GoogleConnector] Нет новых строк для вставки.")
+        print(f"[GoogleConnector][{page}] Нет новых строк для вставки.")
 
       # 5. Лимит строк: если max_rows задан
       if max_rows > 0:

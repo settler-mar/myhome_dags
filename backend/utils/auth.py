@@ -52,8 +52,8 @@ def get_password_hash(password):
 def get_user(username: str):
   from db_models.users import User
   from utils.db_utils import db_session
-  db = db_session()
-  user = db.query(User).filter(User.username == username).first()
+  with db_session() as db:
+    user = db.query(User).filter(User.username == username).first()
   if user:
     return UserInDB(**user.__dict__)
 
@@ -61,11 +61,11 @@ def get_user(username: str):
 def set_last_login(user_id: int):
   from db_models.users import User
   from utils.db_utils import db_session
-  db = db_session()
-  user = db.query(User).filter(User.id == user_id).first()
-  if user:
-    user.set_last_login()
-    db.commit()
+  with db_session() as db:
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+      user.set_last_login()
+      db.commit()
   return user
 
 

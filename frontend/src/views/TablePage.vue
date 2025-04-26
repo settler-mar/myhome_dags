@@ -9,11 +9,13 @@
         class="elevation-1"
       >
         <template v-slot:top>
-          <v-toolbar
-            flat
-          >
+          <v-toolbar flat>
             <v-toolbar-title>{{ pageTitle }}</v-toolbar-title>
             <v-spacer></v-spacer>
+
+            <v-btn icon="mdi-refresh" @click="loadTableData(true)" title="Обновить"/>
+
+            <v-btn color="green" @click="openEditDialog()">Создать</v-btn>
 
             <v-menu offset-y>
               <template v-slot:activator="{ props }">
@@ -26,7 +28,8 @@
                     <draggable v-model="columns">
                       <transition-group>
                         <v-list-item
-                          v-for="element in columns" :key="element.id"
+                          v-for="element in columns"
+                          :key="element.id"
                           :value="element"
                           color="primary"
                         >
@@ -40,55 +43,122 @@
                 </v-card-text>
               </v-card>
             </v-menu>
-            <v-btn
-              color="blue-darken-1"
-              @click="loadTableData"
-            >text
-            </v-btn>
-
-            <v-dialog v-model="dialogDelete" max-width="500px">
-              <v-card>
-                <v-card-title class="text-h5">Are you sure you want to delete this item?</v-card-title>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn color="blue-darken-1" variant="text" @click="closeDelete">Cancel</v-btn>
-                  <v-btn color="blue-darken-1" variant="text" @click="deleteItemConfirm">OK</v-btn>
-                  <v-spacer></v-spacer>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
           </v-toolbar>
         </template>
+
         <template v-slot:item="{ item }">
           <tr>
             <td v-for="column in headers" :key="column.key">
-              {{ item[column.key] }}
+              <v-chip
+                v-if="isColorColumn(column, item[column.key])"
+                :color="item[column.key]"
+                dark
+                label
+              >
+                {{ item[column.key] }}
+              </v-chip>
+              <span v-else-if="isIconColumn(column, item[column.key])">
+                <m-icon :icon="item[column.key]" size="20" class="me-2"/>
+              </span>
+              <v-icon
+                v-else-if="isBooleanColumn(column, item[column.key])"
+                :color="item[column.key] ? 'green' : 'grey'"
+              >
+                {{ item[column.key] ? 'mdi-check-circle' : 'mdi-close-circle' }}
+              </v-icon>
+              <MyFormField
+                v-else-if="column?.element?.type === 'alias'"
+                v-model="item[column.key]"
+                :field="column"
+                :only_value="true"
+                :disabled="true"
+              />
+              <span v-else-if="isLinkColumn(column, item[column.key])">
+                <a :href="item[column.key]" target="_blank">{{ item[column.key] }}</a>
+              </span>
+              <span v-else-if="isDateColumn(column, item[column.key])">
+                {{ formatDate(item[column.key]) }}
+              </span>
+              <span v-else-if="column?.id === '__actions'">
+                <v-btn icon="mdi-pencil" @click.stop="openEditDialog(item)" size="small" title="Редактировать"/>
+                <v-btn icon="mdi-delete" @click.stop="openDeleteDialog(item)" size="small" title="Удалить"/>
+              </span>
+              <span v-else>
+                {{ item[column.key] }}
+              </span>
             </td>
           </tr>
         </template>
       </v-data-table>
     </v-card>
+
+    <!-- Диалог редактирования / создания -->
+    <v-dialog v-model="dialogEdit" max-width="600px">
+      <v-card>
+        <v-card-title class="text-h5">
+          {{ formData.id ? 'Редактировать запись' : 'Создать запись' }}
+        </v-card-title>
+        <v-card-text>
+          <v-container>
+            <v-row>
+              <v-col cols="12" v-for="field in structure" :key="field.name">
+                <MyFormField
+                  v-model="formData[field.name]"
+                  :field="field"
+                  v-if="!field.readonly"
+                />
+              </v-col>
+            </v-row>
+          </v-container>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer/>
+          <v-btn text :disabled="formSaving" @click="dialogEdit = false">Отмена</v-btn>
+          <v-btn color="blue-darken-1" variant="text" :loading="formSaving" :disabled="formSaving" @click="saveForm">
+            Сохранить
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Диалог подтверждения удаления -->
+    <v-dialog v-model="dialogDelete" max-width="500px">
+      <v-card>
+        <v-card-title class="text-h5">
+          Вы уверены, что хотите удалить запись?
+        </v-card-title>
+        <v-card-actions>
+          <v-spacer/>
+          <v-btn text @click="dialogDelete = false">Отмена</v-btn>
+          <v-btn color="red-darken-1" variant="text" @click="deleteItemConfirm">Удалить</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script>
-import tablesStore from "@/store/tables";
-import {mapStores} from "pinia";
-// import messagesStore from "@/store/messages";
-import {secureFetch} from "@/services/fetch";
-import Null from "axios/unsafe/helpers/null";
+import {mapStores} from 'pinia'
+import useTableStore from '@/store/tables'
 import {VueDraggableNext} from 'vue-draggable-next'
+import Null from 'axios/unsafe/helpers/null'
+import MyFormField from '@/components/form_elements/MyFormField.vue'
 
 export default {
+  components: {
+    draggable: VueDraggableNext,
+    MyFormField,
+  },
   data() {
     return {
       _columns: Null,
+      dialogEdit: false,
       dialogDelete: false,
+      formData: {},
+      selectedItem: null,
+      formSaving: false,
       has_set_password: false,
     }
-  },
-  components: {
-    draggable: VueDraggableNext,
   },
   computed: {
     pageTitle() {
@@ -98,89 +168,135 @@ export default {
       return this.$route.meta.tableModel
     },
     items() {
-      if (!this.tablesStore.tables[this.table]) {
-        return []
-      }
-      return this.tablesStore.tables[this.table]['items'] || []
+      return this.tablesStore.tables[this.table]?.items || []
     },
     permissions() {
-      if (!this.tablesStore.tables[this.table]) {
-        return {}
-      }
-      return this.tablesStore.tables[this.table]['permissions'] || {}
+      return this.tablesStore.tables[this.table]?.permissions || {}
     },
     structure() {
-      if (!this.tablesStore.tables[this.table]) {
-        return []
-      }
-      let struct = this.tablesStore.tables[this.table]['structure'] || []
-
-      // if (this.permissions['can_edit'] && !this.has_set_password) {
-      //   struct.push({name: 'password', align: 'center'})
-      // }
-      let root = this
+      const struct = this.tablesStore.tables[this.table]?.structure || []
       return struct.filter(item => {
         if (item.name === 'password') {
-          root.has_set_password = true
+          this.has_set_password = true
           return false
         }
         return true
       })
     },
     headers() {
-      if (!this.columns) {
-        return []
-      }
-      return this.columns.filter(column => column.show)
+      return this.columns?.filter(column => column.show) || []
     },
     columns: {
       get() {
-        if (!this._columns) {
-          this._columns = this.structure.map(item => {
-            return {
-              id: item.name,
-              title: item.name,
-              key: item.name,
-              align: item.align || 'left',
-              sortable: item.sortable || true,
-              show: true
-            }
+        // if (!this._columns) {
+        if (1) {
+          this._columns = this.structure.map(item => ({
+            id: item.name,
+            title: item.name,
+            key: item.name,
+            align: item.align || 'left',
+            sortable: item.sortable ?? true,
+            show: true,
+            element: item?.element,
+          }))
+          this._columns.push({
+            id: '__actions',
+            title: 'Действия',
+            key: '__actions',
+            align: 'center',
+            sortable: false,
+            show: true,
           })
         }
         return this._columns
       },
       set(value) {
+        alert('Сохраните настройки колонок')
         this._columns = value
-      }
+      },
     },
-    ...mapStores(tablesStore)
+    ...mapStores(useTableStore),
   },
   created() {
     this.loadTableData()
   },
   methods: {
-    closeDelete() {
-      this.dialogDelete = false
+    isColorColumn(column, value) {
+      return column.key.toLowerCase().includes('color') && typeof value === 'string' && value.startsWith('#')
     },
-    deleteItemConfirm() {
-      this.dialogDelete = false
-      console.log('deleteItemConfirm')
+    isIconColumn(column, value) {
+      return column.key.toLowerCase().startsWith('icon') && typeof value === 'string'
     },
-    loadTableData() {
-      if (!this.$route.meta.tableModel) {
-        return
+    isBooleanColumn(column, value) {
+      return typeof value === 'boolean'
+    },
+    isLinkColumn(column, value) {
+      return ['url', 'link'].some(k => column.key.toLowerCase().includes(k)) && typeof value === 'string' && value.startsWith('http')
+    },
+    isDateColumn(column, value) {
+      return ['created_at', 'updated_at'].includes(column.key.toLowerCase()) && value
+    },
+    formatDate(value) {
+      try {
+        return new Date(value).toLocaleString()
+      } catch (e) {
+        return value
       }
-      this.tablesStore.loadTableData(this.$route.meta.tableModel)
-    }
+    },
+    loadTableData(reload = false) {
+      if (!this.$route.meta.tableModel) return
+      if (reload) {
+        this.tablesStore.reloadTableData(this.$route.meta.tableModel)
+      } else {
+        this.tablesStore.loadTableData(this.$route.meta.tableModel)
+      }
+    },
+    openEditDialog(item = null) {
+      this.formData = {}
+      this.structure.forEach(field => {
+        this.formData[field.name] = item ? item[field.name] : null
+      })
+      if (item?.id) this.formData.id = item.id
+      this.dialogEdit = true
+    },
+    async saveForm() {
+      this.formSaving = true
+      try {
+        const success = await this.tablesStore.saveItem(this.table, this.formData)
+        if (success) {
+          this.dialogEdit = false
+          this.loadTableData(true)
+        }
+      } catch (e) {
+        console.warn(e)
+      } finally {
+        this.formSaving = false
+        this.loadTableData(true)
+      }
+    },
+    openDeleteDialog(item) {
+      this.selectedItem = item
+      this.dialogDelete = true
+    },
+    async deleteItemConfirm() {
+      await this.tablesStore.deleteItem(this.table, this.selectedItem.id)
+      this.dialogDelete = false
+      this.loadTableData(true)
+    },
   },
   watch: {
+    '$route': {
+      handler() {
+        this.loadTableData()
+      },
+      immediate: true,
+    },
     tablesStore: {
       handler() {
         this._columns = null
       },
-      deep: true
-    }
-  }
+      deep: true,
+    },
+  },
 }
 </script>
-

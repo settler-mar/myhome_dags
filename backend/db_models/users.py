@@ -25,7 +25,7 @@ class User(BaseModelDB):
   is_active = Column(Boolean, default=True)
   role = Column(String(20))
   tg_id = Column(Integer, unique=True, index=True)
-  otp = Column(String(100))
+  otp = Column(String(100), default=None)
   last_login = Column(DateTime, default=datetime.utcnow)
   login_count = Column(Integer, default=0)
 
@@ -45,12 +45,12 @@ class User(BaseModelDB):
   @classmethod
   def custom_routes(cls, app: FastAPI, db_session):
     # get count users. if 0 - create admin user
-    db = db_session()
-    count_users = db.query(User).count()
-    if count_users == 0:
-      admin = User(username='admin', password='admin', role='root', created_by=None, updated_by=None)
-      db.add(admin)
-      db.commit()
+    with db_session() as db:
+      count_users = db.query(User).count()
+      if count_users == 0:
+        admin = User(username='admin', password='admin', role='root', created_by=None, updated_by=None)
+        db.add(admin)
+        db.commit()
 
     class NewPassword(BaseModel):
       password: str
@@ -60,15 +60,15 @@ class User(BaseModelDB):
     @app.post(f"/api/me", tags=['auth'], response_model=dict, dependencies=[(Depends(RoleChecker('user')))])
     def set_password(set_password: NewPassword,
                      current_user: CurrentUser):
-      db = db_session()
-      user = db.query(User).filter(User.id == current_user.id).first()
-      if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-      if not pwd_context.verify(set_password.old_password, user.password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect old password")
-      if set_password.password != set_password.password_repeat:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
-      user.password = set_password.password
-      db.commit()
+      with db_session() as db:
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if not pwd_context.verify(set_password.old_password, user.password):
+          raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect old password")
+        if set_password.password != set_password.password_repeat:
+          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
+        user.password = set_password.password
+        db.commit()
       print('set password')
       return {'status': 'ok'}

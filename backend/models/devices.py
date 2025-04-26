@@ -62,6 +62,13 @@ class Port:
       'subscriber_count': len(self.subscriber),
     }
 
+  def state(self):
+    return {
+      'value': self.value,
+      'value_raw': self.value_raw,
+      'ts': self.last_update.timestamp() if self.last_update else None,
+    }
+
   def get_value(self):
     return self.value
 
@@ -100,6 +107,13 @@ class Port:
                                      value=value,
                                      value_raw=raw_value)
 
+    connection_manager.broadcast_log(level='value',
+                                     _type='port',
+                                     action='out',
+                                     pin_id=self._id,
+                                     value=value,
+                                     value_raw=raw_value)
+
   def _raw_to_value(self, value_raw):
     if self.type == 'numeric':
       return value_raw
@@ -124,6 +138,13 @@ class Port:
                                      device_id=self.device_id,
                                      pin_id=self._id,
                                      pin_name=self.name,
+                                     value=value,
+                                     value_raw=value_raw)
+
+    connection_manager.broadcast_log(level='value',
+                                     _type='port',
+                                     action='in',
+                                     pin_id=self._id,
                                      value=value,
                                      value_raw=value_raw)
 
@@ -244,21 +265,21 @@ class Devices(SingletonClass):
 
   def init_device(self):
     self.devices = {}
-    db = db_session()
-    items = db.query(DbDevices).all()
-    connectors = Connectors().connectors
-    for item in items:
-      if item.connection_id in connectors:
-        self.add_device(item.__dict__)
-      else:
-        print(f"Device {item.name}({item.id}) not found in devices_class or connection_id not found in Connectors")
+    with db_session() as db:
+      items = db.query(DbDevices).all()
+      connectors = Connectors().connectors
+      for item in items:
+        if item.connection_id in connectors:
+          self.add_device(item.__dict__)
+        else:
+          print(f"Device {item.name}({item.id}) not found in devices_class or connection_id not found in Connectors")
 
-    ports = db.query(DbPorts).all()
-    for port in ports:
-      if port.device_id in self.devices:
-        self.add_port(port)
-      else:
-        print(f"Port {port.id} not found in devices[{port.device_id}]")
+      ports = db.query(DbPorts).all()
+      for port in ports:
+        if port.device_id in self.devices:
+          self.add_port(port)
+        else:
+          print(f"Port {port.id} not found in devices[{port.device_id}]")
 
 
 def devices_init(app, add_routes: bool = True):
@@ -270,7 +291,7 @@ def devices_init(app, add_routes: bool = True):
              response_model=dict,
              dependencies=[Depends(RoleChecker('admin'))])
     def get_connections_list():
-      return {name: item.get_info() for name, item in devices.items()}
+      return {name: item.get_info() for name, item in devices.devices.items()}
 
     @app.post("/api/live/dag/{dag_id}/{port_name}/set",
               tags=["live/dags"],
@@ -306,6 +327,14 @@ def devices_init(app, add_routes: bool = True):
       if device_id in devices.devices:
         return {"status": 'ok', "value": devices.devices[device_id].get_value(port_id)}
       return {"status": 'error', "message": 'Device or port not found'}
+
+    @app.get("/api/live/ports",
+             tags=["live/devices"],
+             response_model=dict)
+    def get_ports_list():
+      data = {port_id: port.state() for port_id, port in devices.ports.items()}
+      data[0] = {'ts': datetime.now().timestamp()}
+      return {port_id: port for port_id, port in data.items() if port.get('ts') is not None}
 
 
 class PinsManager(SingletonClass):

@@ -1,12 +1,45 @@
 import useMessageStore from "@/store/messages";
 import authStore from "@/store/auth";
 
-function secureFetch(url, {method, data, dataType = 'json', headers, secure = true} = {}) {
+function secureFetch(url, {
+  method,
+  data,
+  body = null,
+  dataType = 'json',
+  headers,
+  secure = true,
+  files
+} = {}) {
   const MessageStore = useMessageStore();
+  data = data || body;
 
   headers = headers || {
     "Accept": "application/json",
-    "Content-Type": dataType === 'url' ? 'application/x-www-form-urlencoded' : "application/json; charset=utf-8"
+  }
+
+  if (!files) {
+    headers["Content-Type"] = dataType === 'url' ? 'application/x-www-form-urlencoded' : "application/json; charset=utf-8"
+  } else {
+    dataType = 'multipart'
+    let _data = new FormData();
+    if (data) {
+      for (const key in data) {
+        if (data[key] instanceof File) {
+          _data.append(key, data[key]);
+        } else {
+          _data.append(key, JSON.stringify(data[key]));
+        }
+      }
+    }
+    for (const key in files) {
+      if (files[key] instanceof File) {
+        _data.append(key, files[key]);
+      } else {
+        _data.append(key, JSON.stringify(files[key]));
+      }
+    }
+
+    data = _data;
   }
 
   if (secure) {
@@ -15,7 +48,6 @@ function secureFetch(url, {method, data, dataType = 'json', headers, secure = tr
   // new URLSearchParams(data) - dataType = 'url'
   // JSON.stringify(data) - dataType = 'json'
   // data - dataType = 'raw'
-  let body;
   if (data) {
     switch (dataType) {
       case 'url':
@@ -45,60 +77,91 @@ function secureFetch(url, {method, data, dataType = 'json', headers, secure = tr
     // Server returned a status code of 4XX or 5XX
     // Throw the response to handle it in the next catch block
     throw response;
-  }).catch(error => {
-    // It will be invoked for network errors and errors thrown from the then block
-    // Do what ever you want to do with error here
-    if (error instanceof Response) {
-      // Handle error according to the status code
-      switch (error.status) {
-        case 404:
-          // You can also call global notification service here
-          // to show a notification to the user
-          // notificationService.information('Object not found');
-          console.log('Object not found');
-          MessageStore.addMessage({
-            type: "error",
-            message: 'Object not found',
-          });
-          break;
-        case 500:
-          console.log('Internal server error');
-          MessageStore.addMessage({
-            type: "error",
-            message: 'Internal server error',
-          });
-          break;
-        case 401:
-          console.log('Unauthorized');
-          MessageStore.addMessage({
-            type: "error",
-            message: 'Unauthorized',
-          });
-          localStorage.setItem("redirect", location.pathname);
+  }).catch(async (error) => {
+      const fallbackMessage = 'Some error occurred';
+      let errorMessage = fallbackMessage;
 
-          const auth = authStore();
-          auth.logout();
-          location.href = '/login';
-          break;
-        default:
-          console.log('Some error occurred');
+      if (error instanceof Response) {
+        try {
+          const contentType = error.headers.get("Content-Type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await error.json();
+            errorMessage = errorData?.error || errorData?.message || errorData?.detail || fallbackMessage;
+          } else {
+            errorMessage = await error.text();
+          }
+        } catch (e) {
+          console.warn('Failed to parse error response', e);
+        }
+
+        switch (error.status) {
+          case 400:
+            errorMessage = errorMessage || 'Bad request';
+            break;
+          case 404:
+            errorMessage = errorMessage || 'Object not found';
+            break;
+          case 500:
+            errorMessage = errorMessage || 'Internal server error';
+            break;
+          case 401:
+            errorMessage = errorMessage || 'Unauthorized';
+            MessageStore.addMessage({type: "error", message: errorMessage});
+            localStorage.setItem("redirect", location.pathname);
+            const auth = authStore();
+            auth.logout();
+            location.href = '/login';
+            throw error;
+          default:
+            break;
+        }
+
+        if (Array.isArray(errorMessage)) {
+          for (const message of errorMessage) {
+            if (message.type === 'missing') {
+              MessageStore.addMessage({
+                type: "error",
+                message: `Missing field ${message.loc[1]}`,
+              });
+              continue;
+            } else if (message.message || message.msg) {
+              MessageStore.addMessage({
+                type: "error",
+                message: message.msg
+              });
+              continue;
+            } else if (message.loc) {
+              MessageStore.addMessage({
+                type: "error",
+                message: `Field ${message.loc[1] || message.type || message.loc[0]} ${message.msg || message.message}`,
+              });
+              continue;
+            } else {
+              MessageStore.addMessage({
+                type: "error",
+                message
+              });
+            }
+          }
+        } else {
           MessageStore.addMessage({
             type: "error",
-            message: 'Some error occurred',
+            message: errorMessage,
           });
-          break;
+        }
+      } else {
+        // Handle network errors
+        console.log('Network error');
+        console.log(error);
+        MessageStore.addMessage({
+          type: "error",
+          message: 'Network error',
+        });
       }
-    } else {
-      // Handle network errors
-      console.log('Network error');
-      console.log(error);
-      MessageStore.addMessage({
-        type: "error",
-        message: 'Network error',
-      });
+      throw error;
     }
-    throw error;
-  });
+  )
+    ;
 }
 
 

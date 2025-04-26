@@ -71,7 +71,7 @@ export const useDagsStore = defineStore("dags", {
         })
       } catch (error) {
         console.error("Ошибка при загрузке данных:", error);
-        messageStore.addMessage({type: "error", text: "Ошибка при загрузке данных."});
+        messageStore.addMessage({type: "error", text:  `Ошибка при загрузке данных.`});
       }
     },
     _dagUpdate(newDag) {
@@ -375,7 +375,7 @@ export const useDagsStore = defineStore("dags", {
 
       } catch (error) {
         console.error("Ошибка при добавлении шаблона:", error);
-        messageStore.addMessage({type: "error", text: "Ошибка при добавлении шаблона."});
+        messageStore.addMessage({type: "error", text: `Ошибка при добавлении шаблона ${template.name}.`});
       }
     },
     async set_params({id, params, page, group}) {
@@ -410,7 +410,7 @@ export const useDagsStore = defineStore("dags", {
         });
       } catch (error) {
         console.error("Ошибка при установке параметров:", error);
-        messageStore.addMessage({type: "error", text: "Ошибка при установке параметров."});
+        messageStore.addMessage({type: "error", text: `Ошибка при установке параметров ${id}.`});
       }
     },
     async template_save(index) {
@@ -418,7 +418,7 @@ export const useDagsStore = defineStore("dags", {
       const tpl_key = this.page.substr(4)
       const [tpl_name, version] = tpl_key.split('|')
       if (this.templates_edit[tpl_key].on_save || !this.templates_edit[tpl_key].need_save) {
-        messageStore.addMessage({type: "info", text: "Template already saved."});
+        messageStore.addMessage({type: "info", text: `Шаблон ${tpl_name} не требует сохранения.`});
         return
       }
       this.templates_edit[tpl_key].on_save = true
@@ -448,7 +448,7 @@ export const useDagsStore = defineStore("dags", {
         }
       } catch (error) {
         console.error("Ошибка при сохранении шаблона:", error);
-        messageStore.addMessage({type: "error", text: "Ошибка при сохранении шаблона."});
+        messageStore.addMessage({type: "error", text: `Ошибка при сохранении шаблона ${tpl_name}.`});
         this.templates_edit[tpl_key].on_save = false
       }
     },
@@ -492,7 +492,7 @@ export const useDagsStore = defineStore("dags", {
         console.log('save_dags', response)
         const messageStore = useMessageStore();
         if (response.ok) {
-          messageStore.addMessage({type: "success", text: "Dags saved."});
+          messageStore.addMessage({type: "success", text: `Dags saved.`});
           return response;
         } else {
           messageStore.addMessage({type: "error", text: "Dags not saved."});
@@ -507,7 +507,7 @@ export const useDagsStore = defineStore("dags", {
       this.page = 'v' + id
       const response = await secureFetch(url)
       const messageStore = useMessageStore();
-      messageStore.addMessage({type: "success", text: "Template loaded to view mode."});
+      messageStore.addMessage({type: "success", text: `Шаблон ${id} загружен.`});
       root.active_tpls[id] = await response.json()
       this.page = pr_page
       let page_name = 'v' + id

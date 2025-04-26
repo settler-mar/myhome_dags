@@ -21,8 +21,8 @@ class Devices(BaseModelDB):
   _can_get_structure = 'admin'
 
   id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-  code = Column(String(100), unique=True, index=True)
-  name = Column(String(100), unique=True, index=True)
+  code = Column(String(100), unique=True, index=True, nullable=False)
+  name = Column(String(100), unique=True, index=True, nullable=False)
   model = Column(String(100))
   vendor = Column(String(100))
   description = Column(String(255))
@@ -31,16 +31,8 @@ class Devices(BaseModelDB):
 
   @declared_attr
   def connection_id(cls):
-    return Column(Integer, ForeignKey('connections.id'))
+    return Column(Integer, ForeignKey('connections.id'), nullable=False)
 
   @declared_attr
   def location_id(cls):
     return Column(Integer, ForeignKey('locations.id'), nullable=True)
-
-  class CreateSchema(BaseModel):
-    name: str
-    description: str
-    type: str
-    params: dict
-    connection_id: int
-    location_id: int

@@ -1,4 +1,5 @@
 from models.base_db_model import BaseModelDB
+from pydantic_core.core_schema import nullable_schema
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean, DateTime
 from pydantic import BaseModel
 from sqlalchemy import TypeDecorator, types
@@ -23,7 +24,7 @@ class Ports(BaseModelDB):
 
   id = Column(Integer, primary_key=True, index=True, autoincrement=True)
   code = Column(String(100))
-  name = Column(String(100), index=True)
+  name = Column(String(100), index=True, nullable=False)
   label = Column(String(100))
   description = Column(String(255))
   access = Column(Integer)
@@ -35,10 +36,8 @@ class Ports(BaseModelDB):
 
   @declared_attr
   def device_id(cls):
-    return Column(Integer, ForeignKey('devices.id'))
+    return Column(Integer, ForeignKey('devices.id'), nullable=False)
 
-  class CreateSchema(BaseModel):
-    name: str
-    description: str
-    type: str
-    device_id: int
+  @declared_attr
+  def metadata_id(cls):
+    return Column(Integer, ForeignKey('port_metadata.id'), nullable=True)

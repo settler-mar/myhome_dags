@@ -11,6 +11,31 @@ class MqttClass:
   _status: str = "disconnected"
   _devices: dict = {}
 
+  params = {
+    'host': {
+      'type': 'string',
+      'description': 'Host address of the MQTT broker',
+      'default': 'localhost',
+      'required': True,
+    },
+    'port': {
+      'type': 'integer',
+      'description': 'Port of the MQTT broker',
+      'default': 1883,
+      'required': True,
+    },
+    'username': {
+      'type': 'string',
+      'description': 'Username for MQTT broker',
+      'default': '',
+    },
+    'password': {
+      'type': 'string',
+      'description': 'Password for MQTT broker',
+      'default': '',
+    }
+  }
+
   def __init__(self, **kwargs):
     _id = kwargs.get('id', None)
     self.connectors_list[_id] = self

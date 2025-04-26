@@ -7,7 +7,6 @@ import string
 import os
 
 default_config = {
-  'port':3000,
   'auth': {
     'algorithm': 'HS256',
     'expire_minutes': 24 * 60 * 60 * 60,
@@ -32,7 +31,8 @@ default_config = {
     'enabled': True,
     'ttl_days': 7,
     'max_logs_per_group': 100,
-  }
+  },
+  'auto_icon_finder': True
 }
 
 

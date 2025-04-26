@@ -17,12 +17,13 @@ from utils.error_logger import add_route as error_logger_route, init_error_handl
 from utils.system import add_route as system_route
 from models.connections import init_connectors
 from models.devices import devices_init
+from utils.icon_config import add_route as icon_config_route
 
 from utils.google_connector import GoogleConnector
 # from init import init
 from utils.logs import init_routes as init_logs
 
-PORT = config['port'] or 3000
+PORT = 3000
 
 # Initialize the FastAPI app
 app = FastAPI()
@@ -57,6 +58,7 @@ init_logs(app)
 error_logger_route(app)
 init_error_handling()
 system_route(app)
+icon_config_route(app)
 
 
 # nest_asyncio.apply()
@@ -118,7 +120,11 @@ def join_dist():
     # Catch-all route for SPA
     @app.get("/{catchall:path}")
     async def serve_spa(catchall: str):
-      # If the requested file exists, serve it, else serve index.html
+      if catchall.startswith("api/"):
+        # явно возвращаем 404
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+
       file_path = path.join(build_dir, catchall)
       if path.exists(file_path) and path.isfile(file_path):
         return FileResponse(file_path)

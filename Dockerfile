@@ -4,7 +4,7 @@ RUN apt-get update && \
     apt-get install -y curl && \
     apt install -y --no-install-recommends
 
-RUN apt install iw -y
+RUN apt install iw fontforge python3-fontforge -y
 
 RUN apt clean && \
     rm -rf /var/lib/apt/lists/*

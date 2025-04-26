@@ -32,5 +32,21 @@ store/google_credentials.json
 store/google_token.json
 store/logs/
 store/error_logs/
+# Игнорировать сгенерированные файлы
+store/fonts/output/
+
+# Игнорировать всё остальное в icons/, включая подпапки
+store/fonts/icons/*.*
+store/fonts/icons/*/*.*
+store/fonts/actions.log
+store/fonts/config.json
+
+# НЕ игнорировать все одиночные SVG-файлы в icons/
+!store/fonts/icons/base/*.*
+!store/fonts/icons/material_design/*.*
+
+# Повторно разрешить одиночные SVG-файлы на верхнем уровне (важно после /**)
+#!store/fonts/icons/*.svg
 
 backup/
+
